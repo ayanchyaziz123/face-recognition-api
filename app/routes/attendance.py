@@ -1,27 +1,22 @@
-import csv
+from fastapi import APIRouter, Depends
 
-from fastapi import APIRouter
-
-from model import ATTENDANCE_CSV
+from app.auth import get_current_org
+from app.database import AttQuery, attendance_table
 
 router = APIRouter(tags=["Attendance"])
 
 
-def read_records() -> list[dict]:
-    if not ATTENDANCE_CSV.exists():
-        return []
-    with open(ATTENDANCE_CSV, newline="") as f:
-        return list(csv.DictReader(f))
+def read_records(org_id: str) -> list[dict]:
+    return attendance_table.search(AttQuery.org_id == org_id)
 
 
 @router.get("/attendance")
-def get_attendance():
-    records = read_records()
-    return {"total": len(records), "records": records}
+def get_attendance(org_id: str = Depends(get_current_org)):
+    records = read_records(org_id)
+    return {"total": len(records), "records": sorted(records, key=lambda r: r["timestamp"], reverse=True)}
 
 
 @router.delete("/attendance")
-def clear_attendance():
-    if ATTENDANCE_CSV.exists():
-        ATTENDANCE_CSV.unlink()
+def clear_attendance(org_id: str = Depends(get_current_org)):
+    attendance_table.remove(AttQuery.org_id == org_id)
     return {"message": "Attendance log cleared."}

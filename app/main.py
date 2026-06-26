@@ -1,26 +1,26 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
-from model import UNKNOWN_DIR
-from app.routes import dashboard, recognition, attendance, training
+from app.auth import get_current_org
+from app.dependencies import get_recognizer
+from app.routes import auth, members, recognition, attendance, training, dashboard
 
-UNKNOWN_DIR.mkdir(exist_ok=True)
+Path("unknown").mkdir(exist_ok=True)
+Path("models").mkdir(exist_ok=True)
 
-app = FastAPI(title="Smart Attendance System", version="1.0.0")
+app = FastAPI(title="Smart Attendance System", version="2.0.0")
 
 app.mount("/unknown", StaticFiles(directory="unknown"), name="unknown")
 
-app.include_router(dashboard.router)
+app.include_router(auth.router)
+app.include_router(members.router)
 app.include_router(recognition.router)
 app.include_router(attendance.router)
 app.include_router(training.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/health", tags=["System"])
 def health():
-    from app.dependencies import recognizer
-    return {
-        "status":       "ok",
-        "model_loaded": recognizer.model is not None,
-        "classes":      recognizer.classes,
-    }
+    return {"status": "ok"}

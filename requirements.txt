@@ -9,3 +9,5 @@ Pillow
 scikit-learn
 seaborn
 matplotlib
+jinja2
+aiofiles

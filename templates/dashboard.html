@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Attendance System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background: #f0f2f5; }
+    .sidebar {
+      width: 240px; min-height: 100vh;
+      background: #1a1a2e; position: fixed; top: 0; left: 0;
+      padding: 24px 16px; z-index: 100;
+    }
+    .sidebar .brand { color: #fff; font-size: 1.2rem; font-weight: 700; margin-bottom: 32px; display: block; }
+    .sidebar a {
+      display: flex; align-items: center; gap: 10px;
+      color: #aaa; text-decoration: none; padding: 10px 12px;
+      border-radius: 8px; margin-bottom: 4px; font-size: 0.95rem;
+    }
+    .sidebar a:hover, .sidebar a.active { background: #16213e; color: #fff; }
+    .main { margin-left: 240px; padding: 32px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .stat-card .number { font-size: 2rem; font-weight: 700; }
+    .stat-card .label  { color: #888; font-size: 0.85rem; margin-top: 4px; }
+    .stat-card .icon   { font-size: 2rem; opacity: 0.15; }
+    .badge-known   { background: #d4edda; color: #155724; }
+    .badge-unknown { background: #f8d7da; color: #721c24; }
+    .table-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .chart-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .unknown-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
+    .page { display: none; }
+    .page.active { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <span class="brand"><i class="bi bi-camera-video-fill me-2"></i>FaceAttend</span>
+  <a href="#" class="active" onclick="showPage('dashboard', this)"><i class="bi bi-speedometer2"></i> Dashboard</a>
+  <a href="#" onclick="showPage('camera', this)"><i class="bi bi-webcam"></i> Live Camera</a>
+  <a href="#" onclick="showPage('attendance', this)"><i class="bi bi-journal-check"></i> Attendance Log</a>
+  <a href="#" onclick="showPage('unknown', this)"><i class="bi bi-person-x"></i> Unknown Faces</a>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+
+  <!-- Dashboard Page -->
+  <div id="page-dashboard" class="page active">
+    <h4 class="mb-4 fw-bold">Dashboard</h4>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card d-flex justify-content-between align-items-center">
+          <div>
+            <div class="number text-primary">{{ stats.today }}</div>
+            <div class="label">Check-ins Today</div>
+          </div>
+          <i class="bi bi-calendar-check icon text-primary"></i>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card d-flex justify-content-between align-items-center">
+          <div>
+            <div class="number text-success">{{ stats.total }}</div>
+            <div class="label">Total Records</div>
+          </div>
+          <i class="bi bi-people icon text-success"></i>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card d-flex justify-content-between align-items-center">
+          <div>
+            <div class="number text-warning">{{ stats.unknown_count }}</div>
+            <div class="label">Unknown Faces</div>
+          </div>
+          <i class="bi bi-person-x icon text-warning"></i>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card d-flex justify-content-between align-items-center">
+          <div>
+            <div class="number text-info">{{ stats.most_seen or '—' }}</div>
+            <div class="label">Most Seen Today</div>
+          </div>
+          <i class="bi bi-star icon text-info"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-7">
+        <div class="chart-card">
+          <h6 class="fw-bold mb-3">Appearances per Person</h6>
+          <canvas id="barChart" height="120"></canvas>
+        </div>
+      </div>
+      <div class="col-md-5">
+        <div class="table-card">
+          <h6 class="fw-bold mb-3">Recent Check-ins</h6>
+          <table class="table table-sm table-borderless">
+            <tbody>
+              {% for r in recent %}
+              <tr>
+                <td><span class="badge badge-known rounded-pill">{{ r.name }}</span></td>
+                <td class="text-muted small">{{ r.timestamp }}</td>
+                <td class="text-muted small">{{ (r.confidence | float * 100) | round }}%</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-muted">No records yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Camera Page -->
+  <div id="page-camera" class="page">
+    <h4 class="mb-4 fw-bold">Live Camera</h4>
+    <div class="table-card text-center">
+      <video id="video" autoplay playsinline style="display:none"></video>
+      <canvas id="canvas" style="border-radius:8px; max-width:100%"></canvas>
+      <p id="cam-status" class="text-muted mt-3 small">Starting camera...</p>
+    </div>
+  </div>
+
+  <!-- Attendance Log Page -->
+  <div id="page-attendance" class="page">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h4 class="fw-bold mb-0">Attendance Log</h4>
+      <div class="d-flex gap-2">
+        <input type="text" id="search" class="form-control form-control-sm" placeholder="Search name..." oninput="filterTable()" style="width:180px"/>
+        <button class="btn btn-sm btn-outline-danger" onclick="clearLog()">Clear Log</button>
+      </div>
+    </div>
+    <div class="table-card">
+      <table class="table table-hover" id="att-table">
+        <thead class="table-light">
+          <tr><th>Name</th><th>Timestamp</th><th>Confidence</th></tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+          <tr>
+            <td><span class="badge badge-known rounded-pill">{{ r.name }}</span></td>
+            <td>{{ r.timestamp }}</td>
+            <td>{{ (r.confidence | float * 100) | round }}%</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">No attendance records yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Unknown Faces Page -->
+  <div id="page-unknown" class="page">
+    <h4 class="mb-4 fw-bold">Unknown Faces</h4>
+    <div class="row g-3">
+      {% for img in unknown_images %}
+      <div class="col-md-2">
+        <div class="table-card text-center p-2">
+          <img src="/unknown/{{ img }}" class="unknown-thumb mb-1"/>
+          <div class="small text-muted">{{ img }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="col-12 text-muted">No unknown faces captured yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Page navigation
+  function showPage(name, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    el.classList.add('active');
+    if (name === 'camera') startCamera();
+  }
+
+  // Bar chart
+  const chartData = {{ chart_data | tojson }};
+  new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+      labels: chartData.labels,
+      datasets: [{ label: 'Appearances', data: chartData.values,
+        backgroundColor: '#4361ee', borderRadius: 6 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Attendance search
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase();
+    document.querySelectorAll('#att-table tbody tr').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  // Clear attendance log
+  function clearLog() {
+    if (!confirm('Clear all attendance records?')) return;
+    fetch('/attendance', { method: 'DELETE' }).then(() => location.reload());
+  }
+
+  // Webcam
+  let camStarted = false;
+  let busy = false;
+  let latestResults = [];
+
+  function startCamera() {
+    if (camStarted) return;
+    camStarted = true;
+    const video  = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+    const status = document.getElementById('cam-status');
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        status.textContent = 'Camera ready';
+        requestAnimationFrame(function draw() {
+          ctx.drawImage(video, 0, 0);
+          latestResults.forEach(r => {
+            const { x, y, w, h } = r.bbox;
+            const color = r.name !== 'Unknown' ? '#00e676' : '#ff1744';
+            ctx.strokeStyle = color; ctx.lineWidth = 3;
+            ctx.strokeRect(x, y, w, h);
+            ctx.font = 'bold 15px Arial';
+            const tag = `${r.name} ${(r.confidence*100).toFixed(0)}%`;
+            const tw = ctx.measureText(tag).width;
+            ctx.fillStyle = color; ctx.fillRect(x, y-26, tw+10, 22);
+            ctx.fillStyle = '#000'; ctx.fillText(tag, x+5, y-9);
+            ctx.fillStyle = color; ctx.font = '13px Arial';
+            ctx.fillText(r.greeting, x, y+h+18);
+          });
+          requestAnimationFrame(draw);
+        });
+        setInterval(() => {
+          if (busy) return; busy = true;
+          canvas.toBlob(blob => {
+            const form = new FormData();
+            form.append('file', blob, 'frame.jpg');
+            fetch('/predict', { method: 'POST', body: form })
+              .then(r => r.json()).then(d => { latestResults = d.results || []; })
+              .finally(() => { busy = false; });
+          }, 'image/jpeg', 0.8);
+        }, 600);
+      };
+    }).catch(e => status.textContent = 'Camera error: ' + e.message);
+  }
+</script>
+</body>
+</html>

@@ -76,7 +76,7 @@ def train(org_id: str = "default", status: dict | None = None) -> dict:
     ], weight_decay=1e-4)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
-    best_acc, best_weights = 0.0, None
+    best_acc, best_weights = -1.0, None
 
     for epoch in range(1, EPOCHS + 1):
         if status:
@@ -104,6 +104,8 @@ def train(org_id: str = "default", status: dict | None = None) -> dict:
 
         scheduler.step()
 
+    if best_weights is None:
+        best_weights = model.state_dict()
     model.load_state_dict(best_weights)
     torch.save({
         "model_state": model.state_dict(),

@@ -1,16 +1,12 @@
 import threading
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import HTTPException
 
-from app.auth import get_current_org
-from app.dependencies import reload_recognizer, train_status
+from app.core.dependencies import reload_recognizer, train_status
 from trainer import train as run_train
 
-router = APIRouter(tags=["Training"])
 
-
-@router.post("/train")
-def train(org_id: str = Depends(get_current_org)):
+def start_training(org_id: str) -> dict:
     if train_status.get("state") == "training":
         return {"message": "Training already in progress.", "status": train_status}
 
@@ -29,13 +25,11 @@ def train(org_id: str = Depends(get_current_org)):
     return {"message": "Training started in background.", "status": train_status}
 
 
-@router.get("/train/status")
-def get_train_status():
-    return train_status
+def get_train_status() -> dict:
+    return dict(train_status)
 
 
-@router.get("/reload")
-def reload(org_id: str = Depends(get_current_org)):
+def reload_model(org_id: str) -> dict:
     recognizer = reload_recognizer(org_id)
     if recognizer.model is None:
         raise HTTPException(503, "Model not found. Add members and train first.")

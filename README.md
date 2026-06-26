@@ -1,16 +1,37 @@
-# Face Recognition API
+# FaceAttend — Smart Attendance System
 
-A real-time face recognition system built with FastAPI, PyTorch (ResNet-18), and OpenCV. Recognizes faces via webcam and greets them by name through a browser interface.
+A production-ready, multi-tenant face recognition attendance system built with FastAPI, PyTorch, and OpenCV. Organizations register independently, upload member photos through a web dashboard, and the system automatically trains a custom model, recognizes faces in real time, logs attendance, and blocks spoofing attempts.
 
 ---
 
 ## Features
 
-- Real-time face recognition in the browser (no extra software needed)
-- Personalized voice greetings using macOS text-to-speech
-- REST API for image-based prediction
-- Transfer learning with ResNet-18 for high accuracy on small datasets
-- Easy to add new people by adding photos and retraining
+- **Multi-tenant** — each organization has fully isolated members, models, and attendance data
+- **Real-time face recognition** — live webcam feed in the browser with bounding boxes and confidence scores
+- **Auto-training** — model retrains automatically in the background when a new member is added
+- **Two-layer liveness detection** — blocks printed photos and video replay attacks
+  - Texture analysis (Laplacian variance + gradient + std deviation)
+  - Server-side blink detection via OpenCV eye cascade
+- **Attendance logging** — per-org timestamped records with 60-second cooldown to prevent duplicate entries
+- **Unknown face snapshots** — captures and stores unrecognized faces for review
+- **Spoof snapshots** — separately archives detected spoofing attempts
+- **JWT authentication** — secure Bearer token auth, 24-hour expiry
+- **MVC architecture** — clean separation of controllers, services, models, and core
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| API Framework | FastAPI + Uvicorn |
+| Deep Learning | PyTorch · ResNet-18 transfer learning |
+| Face Detection | OpenCV Haar Cascade |
+| Liveness Detection | OpenCV eye cascade · texture analysis |
+| Frontend | Vanilla JS SPA · Chart.js · Bootstrap Icons |
+| Database | TinyDB (JSON, multi-table) |
+| Auth | JWT (python-jose) · bcrypt |
+| Training | CosineAnnealingLR · differential learning rates |
 
 ---
 
@@ -18,161 +39,272 @@ A real-time face recognition system built with FastAPI, PyTorch (ResNet-18), and
 
 ```
 face-recognition-api/
-├── app.py                  # FastAPI server & browser webcam UI
-├── model.py                # Model class, inference logic, greetings
-├── realtime.py             # Standalone webcam script (terminal)
-├── face_recognition.ipynb  # Training notebook
-├── dataset/                # Training images (one folder per person)
-│   ├── Ayan/
-│   ├── Nakib/
-│   └── Mehjabin/
-├── requirements.txt
-└── face_dl_model.pth       # Saved model (generated after training)
+│
+├── app/
+│   ├── controllers/          # HTTP layer — parse request, call service, return response
+│   │   ├── auth_controller.py
+│   │   ├── member_controller.py
+│   │   ├── attendance_controller.py
+│   │   ├── recognition_controller.py
+│   │   ├── training_controller.py
+│   │   └── dashboard_controller.py
+│   │
+│   ├── services/             # Business logic
+│   │   ├── auth_service.py
+│   │   ├── member_service.py
+│   │   ├── attendance_service.py
+│   │   ├── recognition_service.py
+│   │   ├── training_service.py
+│   │   └── liveness_service.py
+│   │
+│   ├── models/
+│   │   └── schemas.py        # Pydantic request/response schemas
+│   │
+│   ├── core/
+│   │   ├── auth.py           # JWT creation and verification
+│   │   ├── database.py       # TinyDB tables
+│   │   └── dependencies.py   # FastAPI dependencies, recognizer cache
+│   │
+│   └── main.py               # App entry point, router registration
+│
+├── templates/
+│   └── dashboard.html        # Single-page dashboard (login + all pages)
+│
+├── model.py                  # FaceRecognitionModel class + Recognizer inference
+├── trainer.py                # Per-org training pipeline
+├── realtime.py               # Standalone OpenCV webcam script
+│
+├── notebooks/
+│   └── face_recognition.ipynb
+│
+├── dataset/                  # Per-org training images  (gitignored)
+│   └── {org_id}/
+│       └── {member_name}/
+│
+├── models/                   # Per-org trained weights  (gitignored)
+│   └── {org_id}_model.pth
+│
+├── unknown/                  # Unrecognized face snapshots
+├── spoofs/                   # Spoofing attempt snapshots
+├── db.json                   # TinyDB database
+└── requirements.txt
 ```
 
 ---
 
 ## Setup
 
-**1. Create and activate virtual environment**
+**1. Clone the repository**
 ```bash
-python -m venv venv
-source venv/bin/activate
+git clone https://github.com/ayanchyaziz123/face-recognition-api.git
+cd face-recognition-api
 ```
 
-**2. Install dependencies**
+**2. Create and activate a virtual environment**
+```bash
+python -m venv venv
+source venv/bin/activate        # macOS / Linux
+venv\Scripts\activate           # Windows
+```
+
+**3. Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-## Training
-
-**1. Add face images to the dataset folder**
-
-Each person gets their own folder. Add at least 15–20 clear photos per person.
-```
-dataset/
-  YourName/
-    1.png
-    2.png
-    ...
-```
-
-**2. Open the notebook and run all cells in order**
+**4. Start the server**
 ```bash
-jupyter notebook face_recognition.ipynb
+uvicorn app.main:app --reload
 ```
 
-Cells in order:
-1. Imports
-2. Augment dataset to 100 images per class
-3. Transforms
-4. Dataset & split
-5. Visualise samples
-6. DataLoaders
-7. Model
-8. Training setup
-9. Training loop
-10. Plot curves
-11. Confusion matrix
-12. Save model
-
-The trained model is saved as `face_dl_model.pth`.
+Open `http://localhost:8000` in your browser.
 
 ---
 
-## Running the API
+## Quick Start
 
-```bash
-uvicorn app:app --reload
-```
+### 1. Register your organization
+On the login screen, click **Register** and create an account for your organization.
 
-Then open your browser at:
-```
-http://localhost:8000
-```
+### 2. Add members
+Go to **Members → Add Member**, enter a name, and upload face photos (10+ clear photos recommended). The model will retrain automatically in the background — a progress banner shows training status.
 
-The browser will access your webcam and show live face recognition with name labels and greetings.
+### 3. Live recognition
+Go to **Live Camera**. Look at the camera and **blink twice** to pass liveness verification. Once verified, the system recognizes faces and logs attendance automatically.
+
+### 4. View attendance
+Go to **Attendance** to see a full timestamped log with confidence scores. Use the search bar to filter by name.
 
 ---
 
-## API Endpoints
+## API Reference
 
-| Method | Endpoint   | Description                                      |
-|--------|------------|--------------------------------------------------|
-| GET    | `/`        | Browser webcam UI with live recognition          |
-| GET    | `/health`  | Server status, loaded model, and known classes   |
-| POST   | `/predict` | Upload an image file, returns name + greeting    |
-| GET    | `/reload`  | Reload model after retraining (no server restart)|
-
-### Example: predict via curl
-```bash
-curl -X POST http://localhost:8000/predict \
-  -F "file=@photo.jpg"
+All protected endpoints require the header:
+```
+Authorization: Bearer <token>
 ```
 
-### Example response
+### Auth
+
+| Method | Endpoint | Body | Description |
+|---|---|---|---|
+| POST | `/auth/register` | `{org_name, email, password}` | Register a new organization |
+| POST | `/auth/login` | `{email, password}` | Login, returns JWT token |
+| GET | `/auth/me` | — | Get current org profile |
+
+### Members
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/members/add?name=Name` | Upload photos, triggers auto-training |
+| GET | `/members/` | List all members |
+| DELETE | `/members/{name}` | Remove a member |
+
+### Recognition
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/predict` | Submit a frame (multipart image), returns faces with liveness |
+| GET | `/unknown-list` | List unknown face snapshot filenames |
+
+**Predict response example:**
 ```json
 {
   "face_detected": true,
   "results": [
     {
       "name": "Ayan",
-      "greeting": "Hi Ayan, how are you doing?",
-      "confidence": 0.94,
-      "bbox": { "x": 120, "y": 80, "w": 100, "h": 100 }
+      "greeting": "Hello Ayan!",
+      "confidence": 0.963,
+      "bbox": { "x": 120, "y": 80, "w": 100, "h": 100 },
+      "liveness": {
+        "is_live": true,
+        "texture_ok": true,
+        "texture_variance": 142.5,
+        "blink_verified": true,
+        "blink_count": 2,
+        "eyes_open": true
+      }
     }
   ]
 }
 ```
 
+### Attendance
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/attendance` | Get all attendance records for the org |
+| DELETE | `/attendance` | Clear all attendance records |
+
+### Training
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/train` | Start background training |
+| GET | `/train/status` | Poll training progress |
+| GET | `/reload` | Hot-reload model without server restart |
+
+### System
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+
 ---
 
-## Standalone Webcam (Terminal)
+## Model Architecture
 
-Run this instead of the browser UI if you want a desktop OpenCV window with voice greetings:
-```bash
-python realtime.py
+ResNet-18 backbone with a custom classification head:
+
 ```
-Press `Q` to quit.
+ResNet-18 backbone (pretrained ImageNet weights)
+  └── Frozen layers 0–6
+  └── Unfrozen layer4 + avgpool (fine-tuned at lr=1e-4)
+
+Custom head:
+  Flatten → Linear(512, 256) → ReLU → Dropout(0.4) → Linear(256, num_classes)
+  (trained at lr=1e-3)
+```
+
+**Training config:**
+- 30 epochs · CosineAnnealingLR scheduler
+- Batch size 16 · Adam optimizer · weight decay 1e-4
+- 80/20 train/val split · saves best validation accuracy weights
+- Augmentation: horizontal flip, rotation ±15°, color jitter
 
 ---
 
-## Adding a New Person
+## Liveness Detection
 
-1. Create a folder: `dataset/NewName/`
-2. Add 15–20 photos (`.png`)
-3. Re-run the notebook (all cells)
-4. Call `http://localhost:8000/reload` to hot-reload without restarting the server
-5. Add a greeting in `model.py`:
-```python
-GREETINGS = {
-    "ayan":     "Hi Ayan, how are you doing?",
-    "nakib":    "Hello Nakib!",
-    "mehjabin": "Hello Mehjabin!",
-    "newname":  "Hello NewName!",
-}
-```
+Two independent checks must both pass before a face is accepted as live:
+
+**Layer 1 — Texture analysis (anti-photo)**
+
+| Signal | Threshold | What it catches |
+|---|---|---|
+| Laplacian variance | > 50 | Flat printed photos score 10–40 |
+| Gradient mean | > 8 | Prints lack natural edge complexity |
+| Pixel std deviation | > 20 | Displayed screens have uniform regions |
+
+Majority vote: 2 of 3 must pass.
+
+**Layer 2 — Blink detection (anti-video)**
+
+- OpenCV `haarcascade_eye_tree_eyeglasses.xml` detects eyes per frame
+- Open → closed transition = one blink registered
+- Requires 2 blinks within a 12-second window
+- State tracked server-side per organization
+
+---
+
+## Data Isolation (Multi-Tenant)
+
+Each organization is completely isolated:
+
+| Resource | Path |
+|---|---|
+| Training images | `dataset/{org_id}/{member_name}/` |
+| Trained model | `models/{org_id}_model.pth` |
+| Attendance records | TinyDB filtered by `org_id` |
+| Unknown snapshots | `unknown/{org_id}/` |
+| Spoof snapshots | `spoofs/{org_id}/` |
 
 ---
 
 ## Requirements
 
 - Python 3.10+
-- macOS (voice greetings use the built-in `say` command)
 - Webcam
+- ~2 GB disk space for PyTorch
+
+```
+fastapi
+uvicorn[standard]
+opencv-contrib-python
+numpy
+python-multipart
+torch
+torchvision
+Pillow
+scikit-learn
+seaborn
+matplotlib
+jinja2
+aiofiles
+tinydb
+python-jose[cryptography]
+bcrypt
+```
 
 ---
 
-## Tech Stack
+## Dataset Recommendations
 
-| Component        | Technology                  |
-|------------------|-----------------------------|
-| API Framework    | FastAPI                      |
-| Deep Learning    | PyTorch + ResNet-18          |
-| Face Detection   | OpenCV Haar Cascade          |
-| Data Augmentation| OpenCV + torchvision         |
-| Frontend         | Vanilla HTML/JS (Canvas API) |
-| Voice Greetings  | macOS `say` command          |
+| Photos per person | Expected accuracy |
+|---|---|
+| 5–10 | ~70% |
+| 15–25 | ~85–90% |
+| 40+ | ~95%+ |
+
+Use clear, well-lit front-facing photos. Avoid heavy blur or extreme angles. Variety in lighting and expression improves robustness.

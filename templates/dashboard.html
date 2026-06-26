@@ -3,266 +3,1625 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Smart Attendance System</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <title>FaceAttend — Smart Attendance</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { background: #f0f2f5; }
+    :root {
+      --sidebar-bg:   #0d1117;
+      --sidebar-w:    235px;
+      --accent:       #7c3aed;
+      --page-bg:      #f4f6fb;
+      --card-bg:      #ffffff;
+      --text:         #111827;
+      --muted:        #6b7280;
+      --border:       #e5e7eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--page-bg); color: var(--text); }
+
+    /* ── Sidebar ─────────────── */
     .sidebar {
-      width: 240px; min-height: 100vh;
-      background: #1a1a2e; position: fixed; top: 0; left: 0;
-      padding: 24px 16px; z-index: 100;
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w); background: var(--sidebar-bg);
+      display: flex; flex-direction: column; z-index: 200;
     }
-    .sidebar .brand { color: #fff; font-size: 1.2rem; font-weight: 700; margin-bottom: 32px; display: block; }
-    .sidebar a {
+    .sidebar-brand {
+      padding: 22px 20px 18px; border-bottom: 1px solid #1f2937;
       display: flex; align-items: center; gap: 10px;
-      color: #aaa; text-decoration: none; padding: 10px 12px;
-      border-radius: 8px; margin-bottom: 4px; font-size: 0.95rem;
     }
-    .sidebar a:hover, .sidebar a.active { background: #16213e; color: #fff; }
-    .main { margin-left: 240px; padding: 32px; }
-    .stat-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .stat-card .number { font-size: 2rem; font-weight: 700; }
-    .stat-card .label  { color: #888; font-size: 0.85rem; margin-top: 4px; }
-    .stat-card .icon   { font-size: 2rem; opacity: 0.15; }
-    .badge-known   { background: #d4edda; color: #155724; }
-    .badge-unknown { background: #f8d7da; color: #721c24; }
-    .table-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .chart-card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .unknown-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
-    .page { display: none; }
-    .page.active { display: block; }
+    .brand-logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg,#7c3aed,#a855f7);
+      display: flex; align-items: center; justify-content: center; color:#fff; font-size:16px;
+    }
+    .brand-name { color:#f9fafb; font-weight:700; font-size:.95rem; }
+    .brand-sub  { color:#4b5563; font-size:.68rem; }
+    .sidebar-nav { flex:1; padding:14px 10px; overflow-y:auto; }
+    .nav-label {
+      color:#374151; font-size:.62rem; font-weight:700; text-transform:uppercase;
+      letter-spacing:.08em; padding:10px 10px 5px;
+    }
+    .nav-item {
+      display:flex; align-items:center; gap:10px; padding:9px 12px;
+      border-radius:9px; cursor:pointer; color:#9ca3af; font-size:.85rem;
+      font-weight:500; margin-bottom:2px; text-decoration:none;
+      transition:background .12s, color .12s;
+    }
+    .nav-item i { font-size:.95rem; width:17px; text-align:center; }
+    .nav-item:hover  { background:#1f2937; color:#e5e7eb; }
+    .nav-item.active { background:#2d1b69; color:#c4b5fd; }
+    .nav-item.active i { color:#a78bfa; }
+    .sidebar-footer { padding:12px 10px; border-top:1px solid #1f2937; }
+    .org-pill {
+      background:#1f2937; border-radius:9px; padding:10px 12px;
+      display:flex; align-items:center; gap:9px; margin-bottom:8px;
+    }
+    .org-avatar {
+      width:30px; height:30px; border-radius:8px;
+      background:linear-gradient(135deg,#7c3aed,#a855f7);
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-size:.75rem; font-weight:700; flex-shrink:0;
+    }
+    .org-name { color:#e5e7eb; font-size:.8rem; font-weight:600; }
+    .org-role { color:#6b7280; font-size:.67rem; }
+    .logout-btn {
+      width:100%; display:flex; align-items:center; gap:8px;
+      padding:8px 12px; border-radius:8px; color:#f87171; background:none;
+      border:none; font-size:.82rem; cursor:pointer; transition:background .12s;
+    }
+    .logout-btn:hover { background:#1f2937; }
+
+    /* ── Main ──────────────────── */
+    .main { margin-left:var(--sidebar-w); min-height:100vh; }
+    .topbar {
+      background:var(--card-bg); border-bottom:1px solid var(--border);
+      padding:14px 28px; display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; z-index:100;
+    }
+    .topbar-title { font-weight:700; font-size:1rem; display:flex; align-items:center; gap:8px; }
+    .topbar-title i { color:var(--accent); }
+    .topbar-actions { display:flex; align-items:center; gap:10px; }
+    .topbar-org {
+      display:flex; align-items:center; gap:7px;
+      background:#f5f3ff; border:1px solid #ddd6fe;
+      padding:5px 12px 5px 7px; border-radius:20px;
+    }
+    .topbar-org .org-dot {
+      width:22px; height:22px; border-radius:50%;
+      background:linear-gradient(135deg,#7c3aed,#a855f7);
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-size:.65rem; font-weight:700; flex-shrink:0;
+    }
+    .topbar-org .org-label { font-size:.78rem; font-weight:600; color:#5b21b6; }
+    .content { padding:26px 28px; }
+    .page { display:none; }
+    .page.active { display:block; }
+
+    /* ── Cards ─────────────────── */
+    .card { background:var(--card-bg); border-radius:14px; border:1px solid var(--border); }
+    .card-pad { padding:22px; }
+    .card-title { font-weight:700; font-size:.88rem; color:var(--text); margin-bottom:14px; }
+
+    /* ── Stat cards ─────────────── */
+    .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:22px; }
+    .stat-card { border-radius:14px; padding:20px; display:flex; align-items:center; gap:14px; border:1px solid; }
+    .sc-purple { background:#f5f3ff; border-color:#ddd6fe; }
+    .sc-green  { background:#ecfdf5; border-color:#a7f3d0; }
+    .sc-amber  { background:#fffbeb; border-color:#fde68a; }
+    .sc-blue   { background:#eff6ff; border-color:#bfdbfe; }
+    .stat-icon { width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .sc-purple .stat-icon { background:#7c3aed; color:#fff; }
+    .sc-green  .stat-icon { background:#059669; color:#fff; }
+    .sc-amber  .stat-icon { background:#d97706; color:#fff; }
+    .sc-blue   .stat-icon { background:#0284c7; color:#fff; }
+    .stat-num { font-size:1.65rem; font-weight:800; line-height:1; }
+    .sc-purple .stat-num { color:#5b21b6; }
+    .sc-green  .stat-num { color:#065f46; }
+    .sc-amber  .stat-num { color:#92400e; }
+    .sc-blue   .stat-num { color:#1e40af; }
+    .stat-lbl { font-size:.75rem; color:var(--muted); margin-top:4px; font-weight:500; }
+
+    /* ── Table ──────────────────── */
+    table { width:100%; border-collapse:collapse; }
+    th {
+      font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+      color:var(--muted); border-bottom:1px solid var(--border); padding:10px 16px; text-align:left;
+    }
+    td { padding:11px 16px; font-size:.85rem; border-bottom:1px solid #f3f4f6; }
+    tr:last-child td { border-bottom:none; }
+    tbody tr:hover td { background:#fafafa; }
+
+    /* ── Badges ─────────────────── */
+    .badge {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:3px 10px; border-radius:20px; font-size:.73rem; font-weight:600;
+    }
+    .b-purple { background:#ede9fe; color:#5b21b6; }
+    .b-green  { background:#d1fae5; color:#065f46; }
+    .b-red    { background:#fee2e2; color:#991b1b; }
+    .b-blue   { background:#dbeafe; color:#1e40af; }
+
+    /* ── Buttons ────────────────── */
+    .btn-accent {
+      background:var(--accent); color:#fff; border:none; padding:9px 18px;
+      border-radius:9px; font-size:.85rem; font-weight:600; cursor:pointer; transition:background .12s;
+    }
+    .btn-accent:hover { background:#6d28d9; }
+    .btn-outline {
+      background:none; color:var(--muted); border:1px solid var(--border); padding:9px 16px;
+      border-radius:9px; font-size:.85rem; font-weight:500; cursor:pointer; transition:background .12s;
+    }
+    .btn-outline:hover { background:#f3f4f6; }
+    .btn-del {
+      background:#fef2f2; color:#dc2626; border:1px solid #fecaca;
+      padding:6px 14px; border-radius:8px; font-size:.78rem; font-weight:600; cursor:pointer;
+    }
+    .btn-del:hover { background:#fee2e2; }
+
+    /* ── Form ───────────────────── */
+    .form-input {
+      width:100%; padding:9px 13px; border:1px solid var(--border); border-radius:9px;
+      font-size:.875rem; color:var(--text); background:#fff; transition:border .12s;
+    }
+    .form-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px #ede9fe; }
+    .form-label { font-size:.78rem; font-weight:600; color:var(--text); margin-bottom:5px; display:block; }
+    .form-group { margin-bottom:14px; }
+    .search-wrap { position:relative; display:inline-block; }
+    .search-wrap i { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.8rem; pointer-events:none; }
+    .search-input { padding-left:32px !important; width:190px; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .dz-over { background:#ede9fe !important; border-color:#7c3aed !important; }
+    .member-row:hover td { background:#faf9ff; }
+    .thumb-wrap { position:relative; border-radius:8px; overflow:hidden; aspect-ratio:1; }
+    .thumb-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+    .thumb-wrap .rm-btn {
+      position:absolute; top:3px; right:3px; width:18px; height:18px;
+      background:rgba(0,0,0,.55); color:#fff; border:none; border-radius:50%;
+      font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+      line-height:1;
+    }
+    .thumb-wrap .rm-btn:hover { background:#ef4444; }
+    .photo-card {
+      position:relative; border-radius:10px; overflow:hidden; aspect-ratio:1;
+      background:#f3f4f6; border:1px solid var(--border);
+    }
+    .photo-card img { width:100%; height:100%; object-fit:cover; display:block; }
+    .photo-card .del-photo-btn {
+      position:absolute; top:5px; right:5px; width:22px; height:22px;
+      background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%;
+      font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+      opacity:0; transition:opacity .15s;
+    }
+    .photo-card:hover .del-photo-btn { opacity:1; }
+    .photo-card .del-photo-btn:hover { background:#ef4444; }
+    .photo-card .photo-num {
+      position:absolute; bottom:0; left:0; right:0;
+      background:rgba(0,0,0,.45); color:#fff; font-size:.65rem;
+      text-align:center; padding:2px 0;
+    }
+
+    /* ── Camera ─────────────────── */
+    #canvas { border-radius:12px; max-width:100%; border:2px solid var(--border); display:block; margin:0 auto; }
+    #cam-status { font-size:.82rem; color:var(--muted); margin-top:12px; text-align:center; }
+
+    /* ── Unknown grid ────────────── */
+    .unk-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:14px; }
+    .unk-card { background:var(--card-bg); border-radius:11px; border:1px solid var(--border); overflow:hidden; }
+    .unk-card img { width:100%; height:100px; object-fit:cover; display:block; }
+    .unk-ts { font-size:.67rem; color:var(--muted); padding:6px 8px; }
+
+    /* ── Login overlay ───────────── */
+    .auth-overlay {
+      position:fixed; inset:0; background:rgba(9,9,11,.6);
+      display:flex; align-items:center; justify-content:center; z-index:9999;
+    }
+    .auth-box {
+      background:#fff; border-radius:18px; padding:36px 32px;
+      width:390px; max-width:95vw; box-shadow:0 24px 64px rgba(0,0,0,.3);
+    }
+    .auth-logo {
+      width:50px; height:50px; border-radius:14px;
+      background:linear-gradient(135deg,#7c3aed,#a855f7);
+      display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; margin-bottom:18px;
+    }
+    .auth-box h4 { font-weight:800; font-size:1.3rem; margin-bottom:3px; }
+    .auth-box .sub { font-size:.85rem; color:var(--muted); margin-bottom:22px; }
+    .tab-strip { display:flex; background:#f3f4f6; border-radius:9px; padding:3px; margin-bottom:20px; }
+    .tab-btn {
+      flex:1; padding:7px; border:none; background:none; border-radius:7px;
+      font-size:.85rem; font-weight:600; color:var(--muted); cursor:pointer; transition:.12s;
+    }
+    .tab-btn.active { background:#fff; color:var(--accent); box-shadow:0 1px 4px rgba(0,0,0,.1); }
+    #authMsg { font-size:.8rem; margin-top:10px; min-height:18px; }
+    .msg-err { color:#dc2626; } .msg-ok { color:#059669; }
   </style>
 </head>
 <body>
 
-<!-- Sidebar -->
-<div class="sidebar">
-  <span class="brand"><i class="bi bi-camera-video-fill me-2"></i>FaceAttend</span>
-  <a href="#" class="active" onclick="showPage('dashboard', this)"><i class="bi bi-speedometer2"></i> Dashboard</a>
-  <a href="#" onclick="showPage('camera', this)"><i class="bi bi-webcam"></i> Live Camera</a>
-  <a href="#" onclick="showPage('attendance', this)"><i class="bi bi-journal-check"></i> Attendance Log</a>
-  <a href="#" onclick="showPage('unknown', this)"><i class="bi bi-person-x"></i> Unknown Faces</a>
-</div>
+<!-- ════════ Auth Overlay ════════ -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo"><i class="bi bi-camera-video-fill"></i></div>
+    <h4>FaceAttend</h4>
+    <p class="sub">Sign in to your organization dashboard</p>
 
-<!-- Main Content -->
-<div class="main">
-
-  <!-- Dashboard Page -->
-  <div id="page-dashboard" class="page active">
-    <h4 class="mb-4 fw-bold">Dashboard</h4>
-
-    <div class="row g-3 mb-4">
-      <div class="col-md-3">
-        <div class="stat-card d-flex justify-content-between align-items-center">
-          <div>
-            <div class="number text-primary">{{ stats.today }}</div>
-            <div class="label">Check-ins Today</div>
-          </div>
-          <i class="bi bi-calendar-check icon text-primary"></i>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card d-flex justify-content-between align-items-center">
-          <div>
-            <div class="number text-success">{{ stats.total }}</div>
-            <div class="label">Total Records</div>
-          </div>
-          <i class="bi bi-people icon text-success"></i>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card d-flex justify-content-between align-items-center">
-          <div>
-            <div class="number text-warning">{{ stats.unknown_count }}</div>
-            <div class="label">Unknown Faces</div>
-          </div>
-          <i class="bi bi-person-x icon text-warning"></i>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="stat-card d-flex justify-content-between align-items-center">
-          <div>
-            <div class="number text-info">{{ stats.most_seen or '—' }}</div>
-            <div class="label">Most Seen Today</div>
-          </div>
-          <i class="bi bi-star icon text-info"></i>
-        </div>
-      </div>
+    <div class="tab-strip">
+      <button class="tab-btn active" onclick="showTab('login')">Sign In</button>
+      <button class="tab-btn"        onclick="showTab('register')">Register</button>
     </div>
 
-    <div class="row g-3">
-      <div class="col-md-7">
-        <div class="chart-card">
-          <h6 class="fw-bold mb-3">Appearances per Person</h6>
-          <canvas id="barChart" height="120"></canvas>
+    <div id="tab-login">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input id="loginEmail" type="email" class="form-input" placeholder="admin@company.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input id="loginPassword" type="password" class="form-input" placeholder="••••••••"
+               onkeydown="if(event.key==='Enter') doLogin()"/>
+      </div>
+      <button class="btn-accent" style="width:100%" onclick="doLogin()">Sign In</button>
+    </div>
+
+    <div id="tab-register" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Organization Name</label>
+        <input id="regOrg" type="text" class="form-input" placeholder="Acme Corp"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input id="regEmail" type="email" class="form-input" placeholder="admin@acme.com"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input id="regPassword" type="password" class="form-input" placeholder="••••••••"/>
+      </div>
+      <button class="btn-accent" style="width:100%" onclick="doRegister()">Create Account</button>
+    </div>
+
+    <div id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ════════ Sidebar ════════ -->
+<aside class="sidebar" id="sidebar" style="display:none">
+  <div class="sidebar-brand">
+    <div class="brand-logo"><i class="bi bi-camera-video-fill"></i></div>
+    <div>
+      <div class="brand-name">FaceAttend</div>
+      <div class="brand-sub">Smart Attendance System</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-label">Overview</div>
+    <a class="nav-item active" onclick="showPage('dashboard',this)">
+      <i class="bi bi-speedometer2"></i> Dashboard
+    </a>
+    <a class="nav-item" onclick="showPage('camera',this)">
+      <i class="bi bi-webcam"></i> Live Camera
+    </a>
+
+    <div class="nav-label" style="margin-top:6px">Management</div>
+    <a class="nav-item" onclick="showPage('attendance',this)">
+      <i class="bi bi-journal-check"></i> Attendance
+    </a>
+    <a class="nav-item" onclick="showPage('members',this)">
+      <i class="bi bi-people"></i> Members
+    </a>
+    <a class="nav-item" onclick="showPage('unknown',this)">
+      <i class="bi bi-person-x"></i> Unknown Faces
+    </a>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="org-pill">
+      <div class="org-avatar" id="orgAvatar">?</div>
+      <div>
+        <div class="org-name" id="orgName">Loading…</div>
+        <div class="org-role">Administrator</div>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">
+      <i class="bi bi-box-arrow-right"></i> Sign Out
+    </button>
+  </div>
+</aside>
+
+<!-- ════════ Main ════════ -->
+<main class="main" id="mainContent" style="display:none">
+
+  <!-- Dashboard -->
+  <div id="page-dashboard" class="page active">
+    <div class="topbar">
+      <div class="topbar-title"><i class="bi bi-speedometer2"></i> Dashboard</div>
+      <div class="topbar-actions">
+        <button class="btn-outline" onclick="loadDashboard()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="stat-grid">
+        <div class="stat-card sc-purple">
+          <div class="stat-icon"><i class="bi bi-clock-history"></i></div>
+          <div><div class="stat-num" id="stat-today">—</div><div class="stat-lbl">Check-ins Today</div></div>
+        </div>
+        <div class="stat-card sc-green">
+          <div class="stat-icon"><i class="bi bi-check2-circle"></i></div>
+          <div><div class="stat-num" id="stat-total">—</div><div class="stat-lbl">Total Records</div></div>
+        </div>
+        <div class="stat-card sc-amber">
+          <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+          <div><div class="stat-num" id="stat-members">—</div><div class="stat-lbl">Members</div></div>
+        </div>
+        <div class="stat-card sc-blue">
+          <div class="stat-icon"><i class="bi bi-star-fill"></i></div>
+          <div><div class="stat-num" id="stat-most" style="font-size:1rem;padding-top:4px">—</div><div class="stat-lbl">Most Seen Today</div></div>
         </div>
       </div>
-      <div class="col-md-5">
-        <div class="table-card">
-          <h6 class="fw-bold mb-3">Recent Check-ins</h6>
-          <table class="table table-sm table-borderless">
-            <tbody>
-              {% for r in recent %}
-              <tr>
-                <td><span class="badge badge-known rounded-pill">{{ r.name }}</span></td>
-                <td class="text-muted small">{{ r.timestamp }}</td>
-                <td class="text-muted small">{{ (r.confidence | float * 100) | round }}%</td>
-              </tr>
-              {% else %}
-              <tr><td colspan="3" class="text-muted">No records yet.</td></tr>
-              {% endfor %}
-            </tbody>
+      <div style="display:grid;grid-template-columns:3fr 2fr;gap:18px">
+        <div class="card card-pad">
+          <div class="card-title">Appearances by Person</div>
+          <canvas id="barChart" height="130"></canvas>
+        </div>
+        <div class="card card-pad">
+          <div class="card-title">Recent Check-ins</div>
+          <table>
+            <thead><tr><th>Name</th><th>Time</th><th>Conf</th></tr></thead>
+            <tbody id="recentBody"></tbody>
           </table>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Live Camera Page -->
+  <!-- Live Camera -->
   <div id="page-camera" class="page">
-    <h4 class="mb-4 fw-bold">Live Camera</h4>
-    <div class="table-card text-center">
-      <video id="video" autoplay playsinline style="display:none"></video>
-      <canvas id="canvas" style="border-radius:8px; max-width:100%"></canvas>
-      <p id="cam-status" class="text-muted mt-3 small">Starting camera...</p>
-    </div>
-  </div>
-
-  <!-- Attendance Log Page -->
-  <div id="page-attendance" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h4 class="fw-bold mb-0">Attendance Log</h4>
-      <div class="d-flex gap-2">
-        <input type="text" id="search" class="form-control form-control-sm" placeholder="Search name..." oninput="filterTable()" style="width:180px"/>
-        <button class="btn btn-sm btn-outline-danger" onclick="clearLog()">Clear Log</button>
-      </div>
-    </div>
-    <div class="table-card">
-      <table class="table table-hover" id="att-table">
-        <thead class="table-light">
-          <tr><th>Name</th><th>Timestamp</th><th>Confidence</th></tr>
-        </thead>
-        <tbody>
-          {% for r in records %}
-          <tr>
-            <td><span class="badge badge-known rounded-pill">{{ r.name }}</span></td>
-            <td>{{ r.timestamp }}</td>
-            <td>{{ (r.confidence | float * 100) | round }}%</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="3" class="text-muted">No attendance records yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Unknown Faces Page -->
-  <div id="page-unknown" class="page">
-    <h4 class="mb-4 fw-bold">Unknown Faces</h4>
-    <div class="row g-3">
-      {% for img in unknown_images %}
-      <div class="col-md-2">
-        <div class="table-card text-center p-2">
-          <img src="/unknown/{{ img }}" class="unknown-thumb mb-1"/>
-          <div class="small text-muted">{{ img }}</div>
+    <div class="topbar">
+      <div class="topbar-title"><i class="bi bi-webcam"></i> Live Camera</div>
+      <div class="topbar-actions">
+        <div id="livenessIndicator" style="display:flex;align-items:center;gap:6px;font-size:.8rem;font-weight:600;color:var(--muted)">
+          <span id="liveDot" style="width:8px;height:8px;border-radius:50%;background:#d1d5db;display:inline-block"></span>
+          <span id="liveLabel">Waiting…</span>
         </div>
       </div>
-      {% else %}
-      <div class="col-12 text-muted">No unknown faces captured yet.</div>
-      {% endfor %}
+    </div>
+    <div class="content">
+      <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start">
+        <div class="card card-pad">
+          <video id="video" autoplay playsinline style="display:none"></video>
+          <canvas id="canvas" style="border-radius:10px;max-width:100%;border:2px solid var(--border);display:block"></canvas>
+          <p id="cam-status" style="font-size:.82rem;color:var(--muted);margin-top:10px;text-align:center">Switch to this tab to activate the camera.</p>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <!-- Liveness status card -->
+          <div class="card card-pad" id="livenessCard">
+            <div class="card-title"><i class="bi bi-shield-check" style="color:#7c3aed"></i> Liveness Check</div>
+            <div id="livenessStatus" style="text-align:center;padding:10px 0">
+              <div style="font-size:2.5rem;margin-bottom:8px">👁️</div>
+              <div style="font-size:.82rem;color:var(--muted)">Waiting for face…</div>
+            </div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+              <div class="card-title" style="margin-bottom:8px">Blink to Verify</div>
+              <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px">
+                Blink naturally to confirm you are a real person.
+              </div>
+              <div style="background:#f3f4f6;border-radius:8px;height:6px;overflow:hidden">
+                <div id="blinkBar" style="height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#a855f7);border-radius:8px;transition:width .3s"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;margin-top:5px">
+                <span style="font-size:.7rem;color:var(--muted)" id="blinkCount">0 / 2 blinks</span>
+                <span style="font-size:.7rem;color:var(--muted)" id="blinkExpiry"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Last detection -->
+          <div class="card card-pad" id="lastDetection" style="display:none">
+            <div class="card-title">Last Detection</div>
+            <div id="lastDetectionBody"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-</div>
+  <!-- Attendance -->
+  <div id="page-attendance" class="page">
+    <div class="topbar">
+      <div class="topbar-title"><i class="bi bi-journal-check"></i> Attendance Log</div>
+      <div class="topbar-actions">
+        <div class="search-wrap">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-input search-input" placeholder="Search…" oninput="filterAtt(this.value)"/>
+        </div>
+        <button class="btn-del" onclick="clearAttendance()">Clear All</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="card">
+        <table>
+          <thead><tr><th>Name</th><th>Timestamp</th><th>Confidence</th></tr></thead>
+          <tbody id="attBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Members -->
+  <div id="page-members" class="page">
+    <div class="topbar">
+      <div class="topbar-title"><i class="bi bi-people"></i> Members</div>
+      <button class="btn-accent" onclick="toggleAddForm()">+ Add Member</button>
+    </div>
+    <div class="content">
+      <div class="card card-pad" id="addCard" style="display:none;margin-bottom:18px">
+        <div class="card-title">Add New Member</div>
+
+        <!-- Info banner -->
+        <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px">
+          <i class="bi bi-info-circle-fill" style="color:#7c3aed;margin-top:2px;flex-shrink:0"></i>
+          <p style="font-size:.8rem;color:#5b21b6;margin:0;line-height:1.5">
+            Upload <strong>10+ clear face photos</strong> per person for best accuracy. The model retrains automatically after upload. You can drag &amp; drop multiple photos or click to browse.
+          </p>
+        </div>
+
+        <!-- Name field -->
+        <div class="form-group" style="max-width:320px">
+          <label class="form-label">Full Name</label>
+          <input id="memberName" type="text" class="form-input" placeholder="e.g. Ayan"
+                 onkeydown="if(event.key==='Enter') document.getElementById('dropZone').click()"/>
+        </div>
+
+        <!-- Hidden real file input -->
+        <input id="memberPhotos" type="file" multiple accept="image/*" style="display:none"
+               onchange="onFilesChosen(this.files)"/>
+
+        <!-- Drop zone -->
+        <div id="dropZone"
+             onclick="document.getElementById('memberPhotos').click()"
+             ondragover="event.preventDefault();this.classList.add('dz-over')"
+             ondragleave="this.classList.remove('dz-over')"
+             ondrop="event.preventDefault();this.classList.remove('dz-over');onFilesChosen(event.dataTransfer.files)"
+             style="border:2px dashed #ddd6fe;border-radius:12px;padding:28px 20px;text-align:center;
+                    cursor:pointer;transition:background .15s,border-color .15s;margin-bottom:14px;
+                    background:#faf9ff">
+          <i class="bi bi-cloud-arrow-up" style="font-size:2rem;color:#a78bfa;display:block;margin-bottom:8px"></i>
+          <div style="font-size:.88rem;font-weight:600;color:#5b21b6">Click to browse or drag &amp; drop photos here</div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:4px">JPG, PNG — select as many as you want at once</div>
+        </div>
+
+        <!-- Photo count badge + clear button -->
+        <div id="photoCountRow" style="display:none;align-items:center;gap:10px;margin-bottom:12px">
+          <span id="photoCountBadge" style="background:#ede9fe;color:#5b21b6;font-size:.8rem;
+                font-weight:700;padding:4px 12px;border-radius:20px"></span>
+          <button onclick="clearPhotos()" style="font-size:.75rem;color:var(--danger);background:none;
+                  border:none;cursor:pointer;text-decoration:underline">Remove all</button>
+          <button onclick="document.getElementById('memberPhotos').click()"
+                  style="font-size:.75rem;color:#7c3aed;background:none;border:none;
+                         cursor:pointer;text-decoration:underline">+ Add more</button>
+        </div>
+
+        <!-- Thumbnail grid -->
+        <div id="thumbGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));
+             gap:8px;margin-bottom:16px;max-height:260px;overflow-y:auto"></div>
+
+        <!-- Upload button -->
+        <button class="btn-accent" onclick="addMember()" id="uploadBtn" disabled
+                style="opacity:.5;cursor:not-allowed">
+          <i class="bi bi-upload"></i> Upload &amp; Save
+        </button>
+
+        <!-- Training banner -->
+        <div id="trainingBanner" style="display:none;margin-top:16px;background:#ecfdf5;
+             border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;
+             align-items:center;gap:10px">
+          <i class="bi bi-arrow-repeat" style="color:#059669;font-size:1.1rem;animation:spin 1s linear infinite"></i>
+          <div>
+            <div style="font-size:.82rem;font-weight:700;color:#065f46">Training in progress…</div>
+            <div id="trainPollMsg" style="font-size:.76rem;color:#047857;margin-top:2px">
+              The model is learning the new member. This takes about 1–2 minutes.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th style="width:210px">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="membersBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Member Detail -->
+  <div id="page-member-detail" class="page">
+    <div class="topbar">
+      <div class="topbar-title">
+        <button onclick="showPage('members')" style="background:none;border:none;cursor:pointer;
+                color:var(--muted);font-size:.85rem;display:inline-flex;align-items:center;gap:6px;
+                margin-right:10px;padding:0">
+          <i class="bi bi-arrow-left"></i> Members
+        </button>
+        <span id="detail-title">Member Details</span>
+      </div>
+    </div>
+
+    <div class="content" style="max-width:900px">
+
+      <!-- Profile card -->
+      <div class="card card-pad" style="margin-bottom:20px">
+        <div style="display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap">
+
+          <!-- Large avatar -->
+          <div style="position:relative;flex-shrink:0;width:96px;height:96px">
+            <div id="detail-dp-fallback"
+                 style="width:96px;height:96px;border-radius:50%;
+                        background:linear-gradient(135deg,#7c3aed,#a855f7);
+                        display:flex;align-items:center;justify-content:center;
+                        color:#fff;font-size:2.2rem;font-weight:700;
+                        position:absolute;inset:0">
+              ?
+            </div>
+            <img id="detail-dp"
+                 style="display:none;width:96px;height:96px;border-radius:50%;
+                        object-fit:cover;border:3px solid #ede9fe;
+                        position:absolute;inset:0"/>
+          </div>
+
+          <!-- Info -->
+          <div style="flex:1;min-width:0">
+            <!-- Name row -->
+            <div id="detail-name-display" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <h2 id="detail-name" style="margin:0;font-size:1.4rem;font-weight:700"></h2>
+              <button class="btn-outline" onclick="startDetailRename()"
+                      style="padding:5px 12px;font-size:.78rem">
+                <i class="bi bi-pencil"></i> Edit Name
+              </button>
+            </div>
+            <!-- Rename inline -->
+            <div id="detail-rename-row" style="display:none;align-items:center;gap:8px;margin-bottom:10px">
+              <input id="detail-rename-input" type="text" class="form-input"
+                     style="width:220px;padding:7px 12px"
+                     onkeydown="if(event.key==='Enter')saveDetailRename();if(event.key==='Escape')cancelDetailRename()"/>
+              <button class="btn-accent" onclick="saveDetailRename()" style="padding:6px 14px;font-size:.82rem">Save</button>
+              <button class="btn-outline" onclick="cancelDetailRename()" style="padding:6px 12px;font-size:.82rem">Cancel</button>
+            </div>
+
+            <!-- Stats row -->
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+              <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;
+                          padding:10px 18px;text-align:center">
+                <div id="detail-photo-count" style="font-size:1.5rem;font-weight:800;color:#7c3aed">0</div>
+                <div style="font-size:.72rem;color:var(--muted);margin-top:2px;font-weight:600">PHOTOS</div>
+              </div>
+              <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;
+                          padding:10px 18px;text-align:center">
+                <div id="detail-accuracy-badge" style="font-size:1.5rem;font-weight:800;color:#059669">—</div>
+                <div style="font-size:.72rem;color:var(--muted);margin-top:2px;font-weight:600">RECOMMENDED</div>
+              </div>
+            </div>
+
+            <!-- Accuracy tip -->
+            <div id="detail-tip" style="font-size:.8rem;color:var(--muted);margin-bottom:12px"></div>
+
+            <!-- Delete member -->
+            <button class="btn-del" onclick="deleteCurrentMember()"
+                    style="font-size:.8rem;padding:7px 16px">
+              <i class="bi bi-trash"></i> Delete Member
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add more photos -->
+      <div class="card card-pad" style="margin-bottom:20px">
+        <div class="card-title" style="margin-bottom:14px"><i class="bi bi-camera-fill" style="color:#7c3aed"></i> Add More Photos</div>
+        <input id="detail-file-input" type="file" multiple accept="image/*" style="display:none"
+               onchange="onDetailFiles(this.files)"/>
+        <div id="detail-drop-zone"
+             onclick="document.getElementById('detail-file-input').click()"
+             ondragover="event.preventDefault();this.classList.add('dz-over')"
+             ondragleave="this.classList.remove('dz-over')"
+             ondrop="event.preventDefault();this.classList.remove('dz-over');onDetailFiles(event.dataTransfer.files)"
+             style="border:2px dashed #ddd6fe;border-radius:12px;padding:22px 20px;
+                    text-align:center;cursor:pointer;background:#faf9ff;transition:background .15s,border-color .15s;
+                    margin-bottom:12px">
+          <i class="bi bi-cloud-arrow-up" style="font-size:1.6rem;color:#a78bfa;display:block;margin-bottom:6px"></i>
+          <div style="font-size:.85rem;font-weight:600;color:#5b21b6">Click to browse or drag &amp; drop</div>
+          <div style="font-size:.73rem;color:var(--muted);margin-top:3px">Select as many photos as you want at once</div>
+        </div>
+        <div id="detail-count-row" style="display:none;align-items:center;gap:10px;margin-bottom:10px">
+          <span id="detail-count-badge" style="background:#ede9fe;color:#5b21b6;font-size:.8rem;
+                font-weight:700;padding:4px 12px;border-radius:20px"></span>
+          <button onclick="clearDetailFiles()" style="font-size:.75rem;color:var(--danger);
+                  background:none;border:none;cursor:pointer;text-decoration:underline">Remove all</button>
+        </div>
+        <div id="detail-new-thumbs"
+             style="display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));
+                    gap:7px;margin-bottom:14px;max-height:200px;overflow-y:auto"></div>
+        <button id="detail-upload-btn" class="btn-accent" onclick="uploadDetailPhotos()" disabled
+                style="opacity:.5;cursor:not-allowed">
+          <i class="bi bi-upload"></i> Upload Photos
+        </button>
+
+        <!-- Training banner -->
+        <div id="detail-training-banner" style="display:none;margin-top:14px;background:#ecfdf5;
+             border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;
+             align-items:center;gap:10px">
+          <i class="bi bi-arrow-repeat" style="color:#059669;font-size:1.1rem;animation:spin 1s linear infinite"></i>
+          <div>
+            <div style="font-size:.82rem;font-weight:700;color:#065f46">Training in progress…</div>
+            <div id="detail-train-msg" style="font-size:.76rem;color:#047857;margin-top:2px">
+              Model is relearning. This takes 1–2 minutes.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing photo grid -->
+      <div class="card card-pad">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin:0">
+            <i class="bi bi-images" style="color:#7c3aed"></i>
+            Training Photos <span id="detail-grid-count" style="font-size:.8rem;color:var(--muted);font-weight:400"></span>
+          </div>
+          <button class="btn-outline" onclick="loadDetailPage(currentMember)"
+                  style="padding:5px 12px;font-size:.78rem">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+        </div>
+        <div id="detail-photo-grid"
+             style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px">
+          <p style="color:var(--muted);font-size:.85rem;grid-column:1/-1">Loading photos…</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Unknown Faces -->
+  <div id="page-unknown" class="page">
+    <div class="topbar">
+      <div class="topbar-title"><i class="bi bi-person-x"></i> Unknown Faces</div>
+      <button class="btn-outline" onclick="loadUnknown()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+    </div>
+    <div class="content">
+      <div class="unk-grid" id="unknownGrid">
+        <p style="color:var(--muted);font-size:.85rem">No snapshots yet.</p>
+      </div>
+    </div>
+  </div>
+
+
+</main>
 
 <script>
-  // Page navigation
-  function showPage(name, el) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
-    document.getElementById('page-' + name).classList.add('active');
-    el.classList.add('active');
-    if (name === 'camera') startCamera();
-  }
+// ── Auth ────────────────────────────────────────────────────────────────────
+const TOKEN_KEY = "fa_token";
+const ORG_KEY   = "fa_org";
+let barChart = null;
 
-  // Bar chart
-  const chartData = {{ chart_data | tojson }};
-  new Chart(document.getElementById('barChart'), {
-    type: 'bar',
-    data: {
-      labels: chartData.labels,
-      datasets: [{ label: 'Appearances', data: chartData.values,
-        backgroundColor: '#4361ee', borderRadius: 6 }]
-    },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+const authHdr  = () => ({ "Authorization": "Bearer " + getToken() });
+
+async function apiFetch(method, path, body) {
+  const opts = { method, headers: { ...authHdr(), "Content-Type": "application/json" } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  return res.json();
+}
+
+function showTab(t) {
+  document.getElementById("tab-login").style.display    = t === "login"    ? "" : "none";
+  document.getElementById("tab-register").style.display = t === "register" ? "" : "none";
+  document.querySelectorAll(".tab-btn").forEach((b,i) =>
+    b.classList.toggle("active", (i===0&&t==="login")||(i===1&&t==="register"))
+  );
+  document.getElementById("authMsg").innerHTML = "";
+}
+
+function setAuthMsg(text, ok) {
+  const el = document.getElementById("authMsg");
+  el.className = ok ? "msg-ok" : "msg-err";
+  el.textContent = text;
+}
+
+async function doLogin() {
+  const email    = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+  const res  = await fetch("/auth/login", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({email, password})
+  });
+  const data = await res.json();
+  if (!res.ok) { setAuthMsg(data.detail); return; }
+  localStorage.setItem(TOKEN_KEY, data.access_token);
+  localStorage.setItem(ORG_KEY, data.org_name);
+  document.getElementById("authOverlay").style.display = "none";
+  showApp();
+}
+
+async function doRegister() {
+  const org_name = document.getElementById("regOrg").value;
+  const email    = document.getElementById("regEmail").value;
+  const password = document.getElementById("regPassword").value;
+  const res  = await fetch("/auth/register", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({org_name, email, password})
+  });
+  const data = await res.json();
+  if (!res.ok) { setAuthMsg(data.detail); return; }
+  setAuthMsg("Account created! Please sign in.", true);
+  showTab("login");
+}
+
+function logout() { localStorage.clear(); location.reload(); }
+
+// ── App boot ─────────────────────────────────────────────────────────────────
+window.onload = () => {
+  if (getToken()) {
+    document.getElementById("authOverlay").style.display = "none";
+    showApp();
+  }
+};
+
+function showApp() {
+  const name = localStorage.getItem(ORG_KEY) || "Org";
+  document.getElementById("sidebar").style.display     = "";
+  document.getElementById("mainContent").style.display = "";
+  document.getElementById("orgName").textContent       = name;
+  document.getElementById("orgAvatar").textContent     = name[0].toUpperCase();
+
+  // Inject org pill into every topbar
+  const pill = `<div class="topbar-org">
+    <div class="org-dot">${name[0].toUpperCase()}</div>
+    <span class="org-label">${name}</span>
+  </div>`;
+  document.querySelectorAll(".topbar").forEach(bar => {
+    let actions = bar.querySelector(".topbar-actions");
+    if (!actions) {
+      actions = document.createElement("div");
+      actions.className = "topbar-actions";
+      bar.appendChild(actions);
+    }
+    actions.insertAdjacentHTML("afterbegin", pill);
   });
 
-  // Attendance search
-  function filterTable() {
-    const q = document.getElementById('search').value.toLowerCase();
-    document.querySelectorAll('#att-table tbody tr').forEach(row => {
-      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
+  loadDashboard();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(name, el) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(a => a.classList.remove("active"));
+  document.getElementById("page-" + name).classList.add("active");
+  if (el) el.classList.add("active");
+  const map = { camera: startCamera, attendance: loadAttendance, members: loadMembers, unknown: loadUnknown, "member-detail": () => {} };
+  if (map[name]) map[name]();
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const [attData, memberData] = await Promise.all([
+    apiFetch("GET", "/attendance"),
+    apiFetch("GET", "/members/"),
+  ]);
+  const records  = attData.records || [];
+  const today    = new Date().toISOString().slice(0,10);
+  const todayRec = records.filter(r => r.timestamp.startsWith(today));
+  const counts   = {};
+  todayRec.forEach(r => counts[r.name] = (counts[r.name]||0)+1);
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById("stat-today").textContent   = todayRec.length;
+  document.getElementById("stat-total").textContent   = records.length;
+  document.getElementById("stat-members").textContent = (memberData.members||[]).length;
+  document.getElementById("stat-most").textContent    = top ? top[0] : "—";
+
+  const rb = document.getElementById("recentBody");
+  rb.innerHTML = records.slice(0,8).map(r =>
+    `<tr>
+       <td><span class="badge b-purple">${r.name}</span></td>
+       <td style="color:var(--muted);font-size:.78rem">${r.timestamp.slice(11)}</td>
+       <td><span class="badge b-green">${(r.confidence*100).toFixed(0)}%</span></td>
+     </tr>`
+  ).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:20px">No records yet.</td></tr>`;
+
+  const all = {};
+  records.forEach(r => all[r.name] = (all[r.name]||0)+1);
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById("barChart"), {
+    type: "bar",
+    data: {
+      labels: Object.keys(all),
+      datasets: [{
+        label: "Appearances",
+        data: Object.values(all),
+        backgroundColor: "#7c3aed",
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: "#f3f4f6" }, ticks: { color: "#9ca3af" } },
+        x: { grid: { display: false }, ticks: { color: "#9ca3af" } }
+      }
+    }
+  });
+}
+
+// ── Attendance ─────────────────────────────────────────────────────────────────
+async function loadAttendance() {
+  const data = await apiFetch("GET", "/attendance");
+  document.getElementById("attBody").innerHTML = (data.records||[]).map(r =>
+    `<tr>
+       <td><span class="badge b-purple">${r.name}</span></td>
+       <td>${r.timestamp}</td>
+       <td><span class="badge b-green">${(r.confidence*100).toFixed(0)}%</span></td>
+     </tr>`
+  ).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:24px">No records.</td></tr>`;
+}
+
+function filterAtt(q) {
+  document.querySelectorAll("#attBody tr").forEach(row =>
+    (row.style.display = row.textContent.toLowerCase().includes(q.toLowerCase()) ? "" : "none")
+  );
+}
+
+async function clearAttendance() {
+  if (!confirm("Clear all attendance records for your organization?")) return;
+  await fetch("/attendance", { method:"DELETE", headers:authHdr() });
+  loadAttendance(); loadDashboard();
+}
+
+// ── Members ────────────────────────────────────────────────────────────────────
+async function loadMembers() {
+  const data    = await apiFetch("GET", "/members/");
+  const members = data.members || [];
+  const tbody   = document.getElementById("membersBody");
+
+  if (!members.length) {
+    tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:var(--muted);padding:28px">
+      No members yet. Click <strong>+ Add Member</strong> to get started.</td></tr>`;
+    return;
   }
 
-  // Clear attendance log
-  function clearLog() {
-    if (!confirm('Clear all attendance records?')) return;
-    fetch('/attendance', { method: 'DELETE' }).then(() => location.reload());
+  tbody.innerHTML = members.map(m => {
+    const n    = m.name;
+    const cnt  = m.photo_count || 0;
+    const safe = encodeURIComponent(n);
+    const init = n[0].toUpperCase();
+    const clr  = cnt >= 10 ? "#059669" : cnt >= 5 ? "#d97706" : "#dc2626";
+    return `
+    <tr id="row-${safe}" style="cursor:pointer" class="member-row" data-name="${n}"
+        title="Click to view details">
+      <td>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="position:relative;width:42px;height:42px;flex-shrink:0">
+            <div id="dp-fallback-${safe}"
+                 style="width:42px;height:42px;border-radius:50%;
+                        background:linear-gradient(135deg,#7c3aed,#a855f7);
+                        display:flex;align-items:center;justify-content:center;
+                        color:#fff;font-weight:700;font-size:.9rem;position:absolute;inset:0">
+              ${init}
+            </div>
+            <img id="dp-${safe}" alt="${init}"
+                 style="display:none;width:42px;height:42px;border-radius:50%;
+                        object-fit:cover;border:2px solid #ede9fe;position:absolute;inset:0"/>
+          </div>
+          <div>
+            <div style="font-weight:600">${n}</div>
+            <div style="font-size:.73rem;color:${clr};font-weight:600;margin-top:1px">
+              ${cnt} photo${cnt!==1?'s':''}
+              ${cnt < 10 ? '· <span style="color:var(--muted);font-weight:400">add more for accuracy</span>' : '· <span style="color:#059669;font-weight:400">sufficient</span>'}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn-outline member-view" data-name="${n}"
+                  style="padding:5px 12px;font-size:.75rem">
+            <i class="bi bi-eye"></i> View
+          </button>
+          <button class="btn-del member-delete" data-name="${n}"
+                  style="padding:5px 10px;font-size:.75rem" title="Delete member">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  // Load real photos as blob URLs (auth-protected endpoint)
+  members.forEach(m => loadMemberDp(m.name));
+}
+
+async function loadMemberDp(name) {
+  const safe = encodeURIComponent(name);
+  try {
+    const r = await fetch(`/members/${safe}/photo`, { headers: authHdr() });
+    if (!r.ok) return;
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    const img  = document.getElementById(`dp-${safe}`);
+    const fb   = document.getElementById(`dp-fallback-${safe}`);
+    if (img) { img.src = url; img.style.display = "block"; }
+    if (fb)  { fb.style.display = "none"; }
+  } catch {}
+}
+
+function toggleAddForm() {
+  const c = document.getElementById("addCard");
+  const open = c.style.display === "none";
+  c.style.display = open ? "" : "none";
+  if (!open) { clearPhotos(); document.getElementById("memberName").value = ""; }
+}
+
+// ── Photo picker state ────────────────────────────────────────────────────────
+let selectedFiles = [];   // DataTransfer trick keeps a mutable file list
+
+function onFilesChosen(fileList) {
+  const existing = new Set(selectedFiles.map(f => f.name + f.size));
+  for (const f of fileList) {
+    if (!existing.has(f.name + f.size)) selectedFiles.push(f);
+  }
+  // reset the real input so the same file can be re-added if cleared
+  document.getElementById("memberPhotos").value = "";
+  renderThumbs();
+}
+
+function renderThumbs() {
+  const grid  = document.getElementById("thumbGrid");
+  const row   = document.getElementById("photoCountRow");
+  const badge = document.getElementById("photoCountBadge");
+  const btn   = document.getElementById("uploadBtn");
+
+  grid.innerHTML = "";
+  selectedFiles.forEach((file, idx) => {
+    const url  = URL.createObjectURL(file);
+    const wrap = document.createElement("div");
+    wrap.className = "thumb-wrap";
+    wrap.innerHTML = `<img src="${url}" loading="lazy"/>
+      <button class="rm-btn" onclick="removePhoto(${idx})" title="Remove">✕</button>`;
+    grid.appendChild(wrap);
+  });
+
+  const count = selectedFiles.length;
+  if (count > 0) {
+    row.style.display   = "flex";
+    badge.textContent   = `${count} photo${count > 1 ? "s" : ""} selected`;
+    btn.disabled        = false;
+    btn.style.opacity   = "1";
+    btn.style.cursor    = "pointer";
+  } else {
+    row.style.display   = "none";
+    btn.disabled        = true;
+    btn.style.opacity   = ".5";
+    btn.style.cursor    = "not-allowed";
+  }
+}
+
+function removePhoto(idx) {
+  selectedFiles.splice(idx, 1);
+  renderThumbs();
+}
+
+function clearPhotos() {
+  selectedFiles = [];
+  renderThumbs();
+}
+
+async function addMember() {
+  const name    = document.getElementById("memberName").value.trim();
+  const btn     = document.getElementById("uploadBtn");
+  const banner  = document.getElementById("trainingBanner");
+  const pollMsg = document.getElementById("trainPollMsg");
+
+  if (!name)                 { alert("Please enter the member's name."); return; }
+  if (!selectedFiles.length) { alert("Please add at least one photo."); return; }
+
+  const form = new FormData();
+  for (const f of selectedFiles) form.append("photos", f);
+
+  btn.disabled        = true;
+  btn.style.opacity   = ".6";
+  btn.innerHTML       = `<i class="bi bi-arrow-repeat" style="animation:spin .8s linear infinite"></i> Uploading ${selectedFiles.length} photo(s)…`;
+
+  const res  = await fetch(`/members/add?name=${encodeURIComponent(name)}`, {
+    method:"POST", headers:authHdr(), body:form
+  });
+  const data = await res.json();
+
+  btn.disabled      = false;
+  btn.style.opacity = "1";
+  btn.innerHTML     = `<i class="bi bi-upload"></i> Upload & Save`;
+
+  if (!res.ok) { alert(data.detail || "Upload failed."); return; }
+
+  // Reset form
+  document.getElementById("memberName").value = "";
+  clearPhotos();
+  loadMembers();
+
+  // Show training banner and poll
+  banner.style.display    = "flex";
+  banner.style.background = "#ecfdf5";
+  banner.style.borderColor= "#a7f3d0";
+  banner.querySelector("i").className     = "bi bi-arrow-repeat";
+  banner.querySelector("i").style.animation = "spin 1s linear infinite";
+  banner.querySelector("i").style.color   = "#059669";
+  pollMsg.textContent = "The model is learning the new member. This takes about 1–2 minutes.";
+
+  let pollTimer = setInterval(async () => {
+    const s = await apiFetch("GET", "/train/status");
+    if (s.state === "training") {
+      pollMsg.textContent = `Epoch ${s.epoch} / ${s.epochs} — learning faces…`;
+    } else if (s.state === "done") {
+      clearInterval(pollTimer);
+      pollMsg.textContent = `Done! Accuracy: ${((s.val_accuracy||0)*100).toFixed(1)}%. ${name} is now recognizable.`;
+      banner.style.background  = "#f0fdf4";
+      banner.querySelector("i").style.animation = "none";
+      banner.querySelector("i").className        = "bi bi-check-circle-fill";
+    } else if (s.state === "error") {
+      clearInterval(pollTimer);
+      pollMsg.textContent      = `Training error: ${s.error}`;
+      banner.style.background  = "#fef2f2";
+      banner.style.borderColor = "#fecaca";
+    }
+  }, 3000);
+}
+
+// ── Members table — delegated events (handles names with spaces / apostrophes) ─
+document.addEventListener("click", async e => {
+  // Row click → open detail (but not when clicking buttons inside)
+  const row = e.target.closest(".member-row");
+  if (row && !e.target.closest("button")) {
+    openMemberDetail(row.dataset.name);
+    return;
   }
 
-  // Webcam
-  let camStarted = false;
-  let busy = false;
-  let latestResults = [];
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  const name = btn.dataset.name;
+  if (!name) return;
 
-  function startCamera() {
-    if (camStarted) return;
-    camStarted = true;
-    const video  = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx    = canvas.getContext('2d');
-    const status = document.getElementById('cam-status');
-
-    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-      video.srcObject = stream;
-      video.onloadedmetadata = () => {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        status.textContent = 'Camera ready';
-        requestAnimationFrame(function draw() {
-          ctx.drawImage(video, 0, 0);
-          latestResults.forEach(r => {
-            const { x, y, w, h } = r.bbox;
-            const color = r.name !== 'Unknown' ? '#00e676' : '#ff1744';
-            ctx.strokeStyle = color; ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, w, h);
-            ctx.font = 'bold 15px Arial';
-            const tag = `${r.name} ${(r.confidence*100).toFixed(0)}%`;
-            const tw = ctx.measureText(tag).width;
-            ctx.fillStyle = color; ctx.fillRect(x, y-26, tw+10, 22);
-            ctx.fillStyle = '#000'; ctx.fillText(tag, x+5, y-9);
-            ctx.fillStyle = color; ctx.font = '13px Arial';
-            ctx.fillText(r.greeting, x, y+h+18);
-          });
-          requestAnimationFrame(draw);
-        });
-        setInterval(() => {
-          if (busy) return; busy = true;
-          canvas.toBlob(blob => {
-            const form = new FormData();
-            form.append('file', blob, 'frame.jpg');
-            fetch('/predict', { method: 'POST', body: form })
-              .then(r => r.json()).then(d => { latestResults = d.results || []; })
-              .finally(() => { busy = false; });
-          }, 'image/jpeg', 0.8);
-        }, 600);
-      };
-    }).catch(e => status.textContent = 'Camera error: ' + e.message);
+  if (btn.classList.contains("member-delete")) {
+    if (!confirm(`Remove ${name}? This also deletes all their photos.`)) return;
+    await fetch(`/members/${encodeURIComponent(name)}`, { method:"DELETE", headers:authHdr() });
+    loadMembers();
   }
+
+  if (btn.classList.contains("member-view")) {
+    openMemberDetail(name);
+  }
+
+  if (btn.classList.contains("member-add-photos")) {
+    openAddPhotos(name);
+  }
+
+  if (btn.classList.contains("member-rename")) {
+    startRename(name);
+  }
+
+  if (btn.classList.contains("rename-save")) {
+    await saveRename(name);
+  }
+
+  if (btn.classList.contains("rename-cancel")) {
+    cancelRename(name);
+  }
+});
+
+document.addEventListener("keydown", async e => {
+  const inp = e.target.closest(".rename-field");
+  if (!inp) return;
+  if (e.key === "Enter")  await saveRename(inp.dataset.name);
+  if (e.key === "Escape") cancelRename(inp.dataset.name);
+});
+
+// ── Add photos to existing member ─────────────────────────────────────────────
+function openAddPhotos(name) {
+  const card = document.getElementById("addCard");
+  card.style.display = "";
+  const nameInput = document.getElementById("memberName");
+  nameInput.value = name;
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  const dz = document.getElementById("dropZone");
+  dz.style.borderColor = "#7c3aed";
+  dz.style.background  = "#ede9fe";
+  setTimeout(() => { dz.style.borderColor = "#ddd6fe"; dz.style.background = "#faf9ff"; }, 1400);
+}
+
+// ── Rename ────────────────────────────────────────────────────────────────────
+function startRename(name) {
+  const safe = encodeURIComponent(name);
+  document.getElementById(`rename-row-${safe}`).style.display = "";
+  const inp = document.getElementById(`rename-input-${safe}`);
+  inp.focus(); inp.select();
+}
+
+function cancelRename(name) {
+  const safe = encodeURIComponent(name);
+  const row  = document.getElementById(`rename-row-${safe}`);
+  if (row) row.style.display = "none";
+  // restore input value
+  const inp = document.getElementById(`rename-input-${safe}`);
+  if (inp) inp.value = name;
+}
+
+async function saveRename(oldName) {
+  const safe    = encodeURIComponent(oldName);
+  const inp     = document.getElementById(`rename-input-${safe}`);
+  const newName = inp ? inp.value.trim() : "";
+  if (!newName || newName === oldName) { cancelRename(oldName); return; }
+
+  const res  = await fetch(`/members/${encodeURIComponent(oldName)}/rename`, {
+    method:  "PUT",
+    headers: { ...authHdr(), "Content-Type": "application/json" },
+    body:    JSON.stringify({ new_name: newName }),
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.detail || "Rename failed."); return; }
+  loadMembers();
+}
+
+async function deleteMember(name) {
+  if (!confirm(`Remove ${name}? This also deletes all their photos.`)) return;
+  await fetch(`/members/${encodeURIComponent(name)}`, { method:"DELETE", headers:authHdr() });
+  loadMembers();
+}
+
+// ── Member Detail Page ────────────────────────────────────────────────────────
+let currentMember = null;
+let detailFiles   = [];
+
+function openMemberDetail(name) {
+  currentMember = name;
+  clearDetailFiles();
+  showPage("member-detail");
+  loadDetailPage(name);
+}
+
+async function loadDetailPage(name) {
+  document.getElementById("detail-title").textContent = name;
+  document.getElementById("detail-name").textContent  = name;
+  document.getElementById("detail-rename-input").value = name;
+
+  // Load large avatar
+  const dpImg = document.getElementById("detail-dp");
+  const dpFb  = document.getElementById("detail-dp-fallback");
+  dpFb.textContent  = name[0].toUpperCase();
+  dpImg.style.display = "none";
+  dpFb.style.display  = "flex";
+
+  const r = await fetch(`/members/${encodeURIComponent(name)}/photo`, { headers: authHdr() });
+  if (r.ok) {
+    const blob = await r.blob();
+    dpImg.src   = URL.createObjectURL(blob);
+    dpImg.style.display = "block";
+    dpFb.style.display  = "none";
+  }
+
+  // Load detail data
+  const data  = await apiFetch("GET", `/members/${encodeURIComponent(name)}`);
+  const cnt   = data.photo_count || 0;
+  document.getElementById("detail-photo-count").textContent = cnt;
+
+  const acc = cnt >= 40 ? "~95%+" : cnt >= 15 ? "~85–90%" : cnt >= 5 ? "~70%" : "Low";
+  document.getElementById("detail-accuracy-badge").textContent = acc;
+  document.getElementById("detail-accuracy-badge").style.color =
+    cnt >= 15 ? "#059669" : cnt >= 5 ? "#d97706" : "#dc2626";
+
+  const tips = cnt >= 40
+    ? "Excellent — model should recognize this person reliably."
+    : cnt >= 15
+    ? "Good accuracy. Add more variety (angles, lighting) to improve."
+    : cnt >= 5
+    ? "Minimum reached but accuracy may be low. Add at least 10 more photos."
+    : "Too few photos. Please add at least 10 clear face photos.";
+  document.getElementById("detail-tip").textContent = tips;
+  document.getElementById("detail-grid-count").textContent = `(${cnt})`;
+
+  // Render photo grid
+  await renderDetailPhotoGrid(name, data.photos || []);
+}
+
+async function renderDetailPhotoGrid(name, filenames) {
+  const grid = document.getElementById("detail-photo-grid");
+  if (!filenames.length) {
+    grid.innerHTML = `<p style="color:var(--muted);font-size:.85rem;grid-column:1/-1">No photos yet.</p>`;
+    return;
+  }
+  // Render placeholders first (grey boxes), then load images asynchronously
+  grid.innerHTML = filenames.map((fname, i) => `
+    <div class="photo-card" id="pc-${i}">
+      <div style="width:100%;height:100%;background:#e5e7eb;display:flex;align-items:center;
+                  justify-content:center;color:#9ca3af;font-size:.7rem">${i+1}</div>
+      <span class="photo-num">${i+1}</span>
+    </div>`).join("");
+
+  // Load each photo with auth headers → blob URL
+  filenames.forEach(async (fname, i) => {
+    try {
+      const r = await fetch(
+        `/members/${encodeURIComponent(name)}/photos/${encodeURIComponent(fname)}`,
+        { headers: authHdr() }
+      );
+      if (!r.ok) return;
+      const blob = await r.blob();
+      const card = document.getElementById(`pc-${i}`);
+      if (!card) return;
+      card.innerHTML = `
+        <img src="${URL.createObjectURL(blob)}" loading="lazy"/>
+        <button class="del-photo-btn detail-del-photo"
+                data-member="${name}" data-file="${fname}" title="Delete photo">✕</button>
+        <span class="photo-num">${i+1}</span>`;
+    } catch {}
+  });
+}
+
+// Delete individual photo from grid
+document.addEventListener("click", async e => {
+  const btn = e.target.closest(".detail-del-photo");
+  if (!btn) return;
+  const member = btn.dataset.member;
+  const file   = btn.dataset.file;
+  if (!confirm(`Delete photo ${file}?`)) return;
+  const res = await fetch(
+    `/members/${encodeURIComponent(member)}/photos/${encodeURIComponent(file)}`,
+    { method: "DELETE", headers: authHdr() }
+  );
+  if (res.ok) loadDetailPage(member);
+});
+
+// Detail page rename
+function startDetailRename() {
+  document.getElementById("detail-name-display").style.display = "none";
+  const row = document.getElementById("detail-rename-row");
+  row.style.display = "flex";
+  const inp = document.getElementById("detail-rename-input");
+  inp.focus(); inp.select();
+}
+function cancelDetailRename() {
+  document.getElementById("detail-rename-row").style.display  = "none";
+  document.getElementById("detail-name-display").style.display = "flex";
+  document.getElementById("detail-rename-input").value = currentMember;
+}
+async function saveDetailRename() {
+  const newName = document.getElementById("detail-rename-input").value.trim();
+  if (!newName || newName === currentMember) { cancelDetailRename(); return; }
+  const res  = await fetch(`/members/${encodeURIComponent(currentMember)}/rename`, {
+    method:  "PUT",
+    headers: { ...authHdr(), "Content-Type": "application/json" },
+    body:    JSON.stringify({ new_name: newName }),
+  });
+  const data = await res.json();
+  if (!res.ok) { alert(data.detail || "Rename failed."); return; }
+  currentMember = newName;
+  cancelDetailRename();
+  loadDetailPage(newName);
+}
+
+// Delete current member from detail page
+async function deleteCurrentMember() {
+  if (!confirm(`Remove ${currentMember}? This also deletes all their photos.`)) return;
+  await fetch(`/members/${encodeURIComponent(currentMember)}`, { method:"DELETE", headers:authHdr() });
+  showPage("members");
+  loadMembers();
+}
+
+// Detail page photo upload
+function onDetailFiles(fileList) {
+  const existing = new Set(detailFiles.map(f => f.name + f.size));
+  for (const f of fileList) {
+    if (!existing.has(f.name + f.size)) detailFiles.push(f);
+  }
+  document.getElementById("detail-file-input").value = "";
+  renderDetailNewThumbs();
+}
+
+function renderDetailNewThumbs() {
+  const grid  = document.getElementById("detail-new-thumbs");
+  const row   = document.getElementById("detail-count-row");
+  const badge = document.getElementById("detail-count-badge");
+  const btn   = document.getElementById("detail-upload-btn");
+
+  grid.innerHTML = "";
+  detailFiles.forEach((file, idx) => {
+    const url  = URL.createObjectURL(file);
+    const wrap = document.createElement("div");
+    wrap.className = "thumb-wrap";
+    wrap.innerHTML = `<img src="${url}" loading="lazy"/>
+      <button class="rm-btn" onclick="removeDetailFile(${idx})">✕</button>`;
+    grid.appendChild(wrap);
+  });
+
+  const cnt = detailFiles.length;
+  if (cnt > 0) {
+    row.style.display  = "flex";
+    badge.textContent  = `${cnt} photo${cnt>1?"s":""} ready to upload`;
+    btn.disabled       = false;
+    btn.style.opacity  = "1";
+    btn.style.cursor   = "pointer";
+  } else {
+    row.style.display  = "none";
+    btn.disabled       = true;
+    btn.style.opacity  = ".5";
+    btn.style.cursor   = "not-allowed";
+  }
+}
+
+function removeDetailFile(idx) { detailFiles.splice(idx, 1); renderDetailNewThumbs(); }
+function clearDetailFiles()    { detailFiles = []; renderDetailNewThumbs(); }
+
+async function uploadDetailPhotos() {
+  if (!detailFiles.length || !currentMember) return;
+  const btn    = document.getElementById("detail-upload-btn");
+  const banner = document.getElementById("detail-training-banner");
+  const msg    = document.getElementById("detail-train-msg");
+
+  const form = new FormData();
+  for (const f of detailFiles) form.append("photos", f);
+
+  btn.disabled      = true;
+  btn.style.opacity = ".6";
+  btn.innerHTML     = `<i class="bi bi-arrow-repeat" style="animation:spin .8s linear infinite"></i> Uploading…`;
+
+  const res  = await fetch(`/members/add?name=${encodeURIComponent(currentMember)}`,
+    { method:"POST", headers:authHdr(), body:form });
+  const data = await res.json();
+
+  btn.disabled      = false;
+  btn.style.opacity = "1";
+  btn.innerHTML     = `<i class="bi bi-upload"></i> Upload Photos`;
+
+  if (!res.ok) { alert(data.detail || "Upload failed."); return; }
+  clearDetailFiles();
+  loadDetailPage(currentMember);
+
+  // Training banner + poll
+  banner.style.display    = "flex";
+  banner.style.background = "#ecfdf5";
+  banner.style.borderColor= "#a7f3d0";
+  banner.querySelector("i").className       = "bi bi-arrow-repeat";
+  banner.querySelector("i").style.animation = "spin 1s linear infinite";
+  banner.querySelector("i").style.color     = "#059669";
+  msg.textContent = "Model is relearning. This takes 1–2 minutes.";
+
+  const poll = setInterval(async () => {
+    const s = await apiFetch("GET", "/train/status");
+    if (s.state === "training") {
+      msg.textContent = `Epoch ${s.epoch} / ${s.epochs}…`;
+    } else if (s.state === "done") {
+      clearInterval(poll);
+      msg.textContent = `Done! Accuracy: ${((s.val_accuracy||0)*100).toFixed(1)}%.`;
+      banner.querySelector("i").style.animation = "none";
+      banner.querySelector("i").className        = "bi bi-check-circle-fill";
+    } else if (s.state === "error") {
+      clearInterval(poll);
+      msg.textContent      = `Training error: ${s.error}`;
+      banner.style.background  = "#fef2f2";
+      banner.style.borderColor = "#fecaca";
+    }
+  }, 3000);
+}
+
+// ── Unknown Faces ──────────────────────────────────────────────────────────────
+async function loadUnknown() {
+  const res  = await fetch("/unknown-list", { headers:authHdr() });
+  const data = await res.json();
+  const grid = document.getElementById("unknownGrid");
+  grid.innerHTML = (data.images||[]).length
+    ? data.images.map(f =>
+        `<div class="unk-card">
+           <img src="/unknown/${f}" onerror="this.src=''"/>
+           <div class="unk-ts">${(f.split("/")[1]||f).replace("unknown_","").replace(/\.\w+$/,"")}</div>
+         </div>`
+      ).join("")
+    : `<p style="color:var(--muted);font-size:.85rem">No unknown face snapshots yet.</p>`;
+}
+
+// ── Live Camera + Server-side Liveness ────────────────────────────────────────
+let camStarted = false, busy = false, latestResults = [];
+const BLINKS_NEEDED = 2;
+
+function startCamera() {
+  if (camStarted) return;
+  camStarted = true;
+
+  const video  = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  const ctx    = canvas.getContext("2d");
+  const status = document.getElementById("cam-status");
+
+  navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      status.textContent = "Camera active — look at the camera and blink naturally…";
+
+      (function draw() {
+        ctx.drawImage(video, 0, 0);
+        drawOverlay(ctx, canvas.width, canvas.height);
+        requestAnimationFrame(draw);
+      })();
+
+      setInterval(sendFrame, 600);
+    };
+  }).catch(e => { status.textContent = "Camera error: " + e.message; });
+}
+
+function sendFrame() {
+  if (busy) return;
+  busy = true;
+  const canvas = document.getElementById("canvas");
+  canvas.toBlob(blob => {
+    const form = new FormData();
+    form.append("file", blob, "frame.jpg");
+    fetch("/predict", { method:"POST", headers:authHdr(), body:form })
+      .then(r => r.json())
+      .then(d => { latestResults = d.results || []; updateLivenessPanel(); })
+      .finally(() => { busy = false; });
+  }, "image/jpeg", .85);
+}
+
+function drawOverlay(ctx, W, H) {
+  if (!latestResults.length) {
+    setLiveIndicator("#9ca3af", "No face detected");
+    return;
+  }
+  latestResults.forEach(r => {
+    const {x, y, w, h} = r.bbox;
+    const lv = r.liveness || {};
+    const isSpoof   = r.name === "Spoof Detected";
+    const isUnknown = r.name === "Unknown";
+    const isLive    = lv.is_live;
+
+    const boxColor = isSpoof   ? "#f97316"
+                   : isUnknown ? "#ef4444"
+                   : isLive    ? "#7c3aed"
+                   :             "#d97706";
+
+    // Bounding box
+    ctx.strokeStyle = boxColor; ctx.lineWidth = 3;
+    ctx.strokeRect(x, y, w, h);
+
+    // Fill tint
+    ctx.fillStyle = isSpoof   ? "rgba(249,115,22,.10)"
+                  : isLive    ? "rgba(124,58,237,.06)"
+                  :             "rgba(239,68,68,.06)";
+    ctx.fillRect(x, y, w, h);
+
+    // Name label
+    const label = isSpoof ? "SPOOF DETECTED" : `${r.name}  ${(r.confidence*100).toFixed(0)}%`;
+    ctx.font = "bold 14px system-ui,sans-serif";
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = boxColor;
+    ctx.fillRect(x, y - 28, tw + 16, 24);
+    ctx.fillStyle = "#fff";
+    ctx.fillText(label, x + 8, y - 11);
+
+    // Liveness status below box
+    const eyeIcon  = lv.eyes_open ? "👁" : "😑";
+    const blinkTxt = `${eyeIcon}  ${lv.blink_count ?? 0}/${BLINKS_NEEDED} blinks  |  tex:${lv.texture_variance ?? "—"}`;
+    ctx.font = "12px system-ui,sans-serif";
+    ctx.fillStyle = isLive ? "#059669" : "#d97706";
+    ctx.fillText(blinkTxt, x, y + h + 16);
+  });
+}
+
+function updateLivenessPanel() {
+  if (!latestResults.length) {
+    setLiveIndicator("#9ca3af", "No face");
+    document.getElementById("livenessStatus").innerHTML =
+      `<div style="text-align:center;padding:10px 0">
+         <div style="font-size:2rem;margin-bottom:8px">👁️</div>
+         <div style="font-size:.82rem;color:var(--muted)">Waiting for face…</div>
+       </div>`;
+    return;
+  }
+
+  const r  = latestResults[0];
+  const lv = r.liveness || {};
+  const isSpoof = r.name === "Spoof Detected";
+  const blinkOk = lv.blink_verified;
+  const texOk   = lv.texture_ok;
+  const isLive  = lv.is_live;
+
+  // Topbar indicator
+  if (isSpoof) {
+    setLiveIndicator("#f97316", "Spoof Detected");
+  } else if (isLive) {
+    setLiveIndicator("#059669", "Live ✓");
+  } else if (texOk && !blinkOk) {
+    setLiveIndicator("#d97706", `Blink ${BLINKS_NEEDED - (lv.blink_count||0)} more time(s)`);
+  } else {
+    setLiveIndicator("#ef4444", "Spoof Risk");
+  }
+
+  // Blink progress bar
+  const pct = Math.min(100, ((lv.blink_count||0) / BLINKS_NEEDED) * 100);
+  document.getElementById("blinkBar").style.width   = pct + "%";
+  document.getElementById("blinkCount").textContent = `${lv.blink_count||0} / ${BLINKS_NEEDED} blinks`;
+  document.getElementById("blinkExpiry").textContent = blinkOk ? "✓ Verified" : "";
+  document.getElementById("blinkExpiry").style.color = "#059669";
+
+  // Liveness card body
+  const emoji = isLive ? "✅" : isSpoof ? "🚫" : texOk ? "👁" : "⚠️";
+  let msg;
+  if (isLive) {
+    msg = `<strong style="color:#059669">Verified Live</strong><br>
+           <span style="font-size:.75rem;color:var(--muted)">Texture ✓ &nbsp;·&nbsp; Blink ✓</span>`;
+  } else if (isSpoof) {
+    msg = `<strong style="color:#f97316">Spoof Detected</strong><br>
+           <span style="font-size:.75rem;color:var(--muted)">Texture score: ${lv.texture_variance}</span>`;
+  } else if (texOk) {
+    const need = BLINKS_NEEDED - (lv.blink_count||0);
+    msg = `<strong style="color:#d97706">Blink to verify</strong><br>
+           <span style="font-size:.75rem;color:var(--muted)">Blink ${need} more time(s) naturally</span>`;
+  } else {
+    msg = `<strong style="color:#ef4444">Checking…</strong><br>
+           <span style="font-size:.75rem;color:var(--muted)">Look directly at the camera</span>`;
+  }
+  document.getElementById("livenessStatus").innerHTML =
+    `<div style="text-align:center;padding:10px 0">
+       <div style="font-size:2.2rem;margin-bottom:8px">${emoji}</div>
+       <div style="font-size:.82rem">${msg}</div>
+     </div>`;
+
+  // Last detection card
+  if (!isSpoof && r.name !== "Unknown") {
+    const panel = document.getElementById("lastDetection");
+    panel.style.display = "";
+    document.getElementById("lastDetectionBody").innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a855f7);
+             display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">
+          ${r.name[0].toUpperCase()}</div>
+        <div>
+          <div style="font-weight:700">${r.name}</div>
+          <div style="font-size:.73rem;color:var(--muted)">${new Date().toLocaleTimeString()}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.75rem">
+        <div style="background:#f5f3ff;border-radius:7px;padding:8px">
+          <div style="color:var(--muted)">Confidence</div>
+          <div style="font-weight:700;color:#5b21b6">${(r.confidence*100).toFixed(1)}%</div>
+        </div>
+        <div style="background:${isLive?'#ecfdf5':'#fff7ed'};border-radius:7px;padding:8px">
+          <div style="color:var(--muted)">Liveness</div>
+          <div style="font-weight:700;color:${isLive?'#065f46':'#92400e'}">${isLive?'Verified':'Checking'}</div>
+        </div>
+        <div style="background:#f9fafb;border-radius:7px;padding:8px">
+          <div style="color:var(--muted)">Texture</div>
+          <div style="font-weight:700">${lv.texture_variance ?? "—"}</div>
+        </div>
+        <div style="background:#f9fafb;border-radius:7px;padding:8px">
+          <div style="color:var(--muted)">Eyes</div>
+          <div style="font-weight:700">${lv.eyes_open ? "Open" : "Closed"}</div>
+        </div>
+      </div>`;
+  }
+}
+
+function setLiveIndicator(color, text) {
+  document.getElementById("liveDot").style.background  = color;
+  document.getElementById("liveLabel").textContent     = text;
+  document.getElementById("liveLabel").style.color     = color;
+}
 </script>
 </body>
 </html>

@@ -13,4 +13,4 @@ jinja2
 aiofiles
 tinydb
 python-jose[cryptography]
-passlib[bcrypt]
+bcrypt

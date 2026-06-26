@@ -1,27 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import HTTPException
 
-from app.auth import create_token, get_current_org, hash_password, verify_password
-from app.database import OrgQuery, orgs_table
-
-router = APIRouter(prefix="/auth", tags=["Auth"])
+from app.core.auth import create_token, hash_password, verify_password
+from app.core.database import OrgQuery, orgs_table
+from app.models.schemas import LoginBody, RegisterBody
 
 
-class RegisterBody(BaseModel):
-    org_name: str
-    email:    str
-    password: str
-
-
-class LoginBody(BaseModel):
-    email:    str
-    password: str
-
-
-@router.post("/register", status_code=201)
-def register(body: RegisterBody):
+def register_org(body: RegisterBody) -> dict:
     if orgs_table.search(OrgQuery.email == body.email):
         raise HTTPException(400, "Email already registered.")
 
@@ -35,8 +21,7 @@ def register(body: RegisterBody):
     return {"message": "Organization registered.", "org_id": org_id}
 
 
-@router.post("/login")
-def login(body: LoginBody):
+def login_org(body: LoginBody) -> dict:
     results = orgs_table.search(OrgQuery.email == body.email)
     if not results or not verify_password(body.password, results[0]["password"]):
         raise HTTPException(401, "Invalid email or password.")
@@ -50,8 +35,7 @@ def login(body: LoginBody):
     }
 
 
-@router.get("/me")
-def me(org_id: str = Depends(get_current_org)):
+def get_org_profile(org_id: str) -> dict:
     org = orgs_table.search(OrgQuery.id == org_id)
     if not org:
         raise HTTPException(404, "Organization not found.")

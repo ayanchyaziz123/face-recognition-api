@@ -1,3 +1,6 @@
+import csv
+import time
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -7,8 +10,14 @@ import torch.nn as nn
 from PIL import Image
 from torchvision import models, transforms
 
-MODEL_PATH = Path("face_dl_model.pth")
-CONFIDENCE  = 0.4
+MODEL_PATH      = Path("face_dl_model.pth")
+ATTENDANCE_CSV  = Path("attendance.csv")
+UNKNOWN_DIR     = Path("unknown")
+CONFIDENCE      = 0.4
+LOG_INTERVAL    = 60.0   # seconds before logging same person again
+UNK_INTERVAL    = 10.0   # seconds before saving another unknown snapshot
+
+UNKNOWN_DIR.mkdir(exist_ok=True)
 
 DEVICE = torch.device(
     "mps"  if torch.backends.mps.is_available() else
@@ -33,6 +42,20 @@ _detector = cv2.CascadeClassifier(
 )
 
 
+def _log_attendance(name: str, confidence: float):
+    exists = ATTENDANCE_CSV.exists()
+    with open(ATTENDANCE_CSV, "a", newline="") as f:
+        writer = csv.writer(f)
+        if not exists:
+            writer.writerow(["name", "timestamp", "confidence"])
+        writer.writerow([name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), round(confidence, 3)])
+
+
+def _save_unknown(face_bgr):
+    filename = UNKNOWN_DIR / f"unknown_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+    cv2.imwrite(str(filename), face_bgr)
+
+
 class FaceRecognitionModel(nn.Module):
     def __init__(self, num_classes: int):
         super().__init__()
@@ -54,6 +77,8 @@ class Recognizer:
     def __init__(self):
         self.model: FaceRecognitionModel | None = None
         self.classes: list[str] = []
+        self._log_cooldown:  dict[str, float] = {}
+        self._unk_last_saved: float = 0
         self.load()
 
     def load(self):
@@ -78,25 +103,41 @@ class Recognizer:
         faces = _detector.detectMultiScale(gray, 1.1, 5, minSize=(60, 60))
 
         results = []
+        now = time.time()
+
         for x, y, w, h in faces:
-            rgb    = cv2.cvtColor(bgr[y:y+h, x:x+w], cv2.COLOR_BGR2RGB)
-            tensor = transform(Image.fromarray(rgb)).unsqueeze(0).to(DEVICE)
+            face_bgr = bgr[y:y+h, x:x+w]
+            rgb      = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB)
+            tensor   = transform(Image.fromarray(rgb)).unsqueeze(0).to(DEVICE)
 
             with torch.no_grad():
                 probs = torch.softmax(self.model(tensor), dim=1)[0]
 
             conf, idx = probs.max(0)
-            if conf.item() >= CONFIDENCE:
+            conf_val  = conf.item()
+
+            if conf_val >= CONFIDENCE:
                 name     = self.classes[idx.item()]
                 greeting = GREETINGS.get(name.lower(), f"Hello {name}!")
+
+                # Log attendance with cooldown
+                last = self._log_cooldown.get(name.lower(), 0)
+                if now - last >= LOG_INTERVAL:
+                    _log_attendance(name, conf_val)
+                    self._log_cooldown[name.lower()] = now
             else:
                 name     = "Unknown"
                 greeting = "I'm sorry, I can't recognize you."
 
+                # Save unknown face snapshot with cooldown
+                if now - self._unk_last_saved >= UNK_INTERVAL:
+                    _save_unknown(face_bgr)
+                    self._unk_last_saved = now
+
             results.append({
                 "name":       name,
                 "greeting":   greeting,
-                "confidence": round(conf.item(), 3),
+                "confidence": round(conf_val, 3),
                 "bbox":       {"x": int(x), "y": int(y), "w": int(w), "h": int(h)},
             })
 

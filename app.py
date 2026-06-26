@@ -1,10 +1,18 @@
+import csv
+import threading
+from pathlib import Path
+
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 
-from model import Recognizer
+from model import ATTENDANCE_CSV, Recognizer
+from trainer import train as run_train
 
 app        = FastAPI(title="Face Recognition API")
 recognizer = Recognizer()
+
+# Shared training status
+_train_status: dict = {"state": "idle"}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -55,7 +63,6 @@ def index():
     let latestResults = [];
     let busy = false;
 
-    // Start webcam
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         video.srcObject = stream;
@@ -69,21 +76,17 @@ def index():
       })
       .catch(err => status.textContent = 'Camera error: ' + err.message);
 
-    // Draw loop
     function draw() {
       ctx.drawImage(video, 0, 0);
-
       latestResults.forEach(r => {
         const { x, y, w, h } = r.bbox;
         const known = r.name !== 'Unknown';
         const color = known ? '#00e676' : '#ff1744';
 
-        // Box
         ctx.strokeStyle = color;
         ctx.lineWidth   = 3;
         ctx.strokeRect(x, y, w, h);
 
-        // Name tag background
         const tag = `${r.name}  ${(r.confidence * 100).toFixed(0)}%`;
         ctx.font = 'bold 16px Segoe UI, Arial';
         const tw = ctx.measureText(tag).width;
@@ -92,16 +95,13 @@ def index():
         ctx.fillStyle = '#000';
         ctx.fillText(tag, x + 6, y - 10);
 
-        // Greeting below box
         ctx.fillStyle = color;
         ctx.font = '14px Segoe UI, Arial';
         ctx.fillText(r.greeting, x, y + h + 20);
       });
-
       requestAnimationFrame(draw);
     }
 
-    // Send frame to /predict
     function sendFrame() {
       if (busy) return;
       busy = true;
@@ -129,9 +129,9 @@ def index():
 @app.get("/health")
 def health():
     return {
-        "status":       "ok",
-        "model_loaded": recognizer.model is not None,
-        "classes":      recognizer.classes,
+        "status":        "ok",
+        "model_loaded":  recognizer.model is not None,
+        "classes":       recognizer.classes,
     }
 
 
@@ -147,9 +147,50 @@ async def predict(file: UploadFile = File(...)):
         raise HTTPException(400, str(e))
 
 
+@app.post("/train")
+def train():
+    if _train_status.get("state") == "training":
+        return {"message": "Training already in progress.", "status": _train_status}
+
+    def _run():
+        try:
+            result = run_train(status=_train_status)
+            recognizer.load()
+            _train_status.update(result)
+        except Exception as e:
+            _train_status["state"] = "error"
+            _train_status["error"] = str(e)
+
+    _train_status.clear()
+    _train_status["state"] = "starting"
+    threading.Thread(target=_run, daemon=True).start()
+    return {"message": "Training started in background.", "status": _train_status}
+
+
+@app.get("/train/status")
+def train_status():
+    return _train_status
+
+
 @app.get("/reload")
 def reload():
     recognizer.load()
     if recognizer.model is None:
-        raise HTTPException(503, "Model not found. Train in the notebook first.")
+        raise HTTPException(503, "Model not found. Train first.")
     return {"message": "Model reloaded.", "classes": recognizer.classes}
+
+
+@app.get("/attendance")
+def get_attendance():
+    if not ATTENDANCE_CSV.exists():
+        return {"total": 0, "records": []}
+    with open(ATTENDANCE_CSV, newline="") as f:
+        records = list(csv.DictReader(f))
+    return {"total": len(records), "records": records}
+
+
+@app.delete("/attendance")
+def clear_attendance():
+    if ATTENDANCE_CSV.exists():
+        ATTENDANCE_CSV.unlink()
+    return {"message": "Attendance log cleared."}
